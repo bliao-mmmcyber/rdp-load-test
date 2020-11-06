@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,17 +17,80 @@ import (
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 
+	// XXX
+	etcdCli := guac.NewEtcdClient()
+	pmRes := guac.EtcdGet(etcdCli, "/dplocal/dp_setting/POLICY_MANAGEMENT_ENDPOINT")
+	pmHost := string(pmRes.Kvs[0].Value)
+	selfRes := guac.EtcdGet(etcdCli, "/dplocal/dp_setting/RDPWS_HOST")
+	selfHost := string(selfRes.Kvs[0].Value)
+	requestBody := map[string]string{}
+	requestBody["address"] = selfHost
+	requestBytes, _err := json.Marshal(requestBody)
+	if _err != nil {
+		logrus.Fatal("marshal failed")
+		return
+	}
+	resp, _err := http.Post(fmt.Sprintf("http://%s/register", pmHost), "application/json", bytes.NewBuffer(requestBytes))
+	if _err != nil {
+		logrus.Fatal("marshal failed")
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	logrus.Println("response Body:", string(body))
+	// XXX
+
 	servlet := guac.NewServer(DemoDoConnect)
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
+
+	chManagement := guac.NewChannelManagement()
+	chManagement.RequestPolicyFunc = func(appID string, userID string) []string {
+		requestParam := url.Values{
+			"userID": []string{userID},
+			"appID":  []string{appID},
+		}
+		resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", pmHost, requestParam.Encode()))
+		if _err != nil {
+			logrus.Fatal("marshal failed")
+			return nil
+		}
+		defer resp.Body.Close()
+
+		var p PolicyResponse
+		body, _ := ioutil.ReadAll(resp.Body)
+		json.Unmarshal(body, &p)
+		if p.Actions != nil {
+			return p.Actions
+		}
+		return nil
+	}
 
 	sessions := guac.NewMemorySessionStore()
 	wsServer.OnConnect = sessions.Add
 	wsServer.OnDisconnect = sessions.Delete
+	wsServer.AppendChannelManagement(chManagement)
 
 	mux := http.NewServeMux()
 	mux.Handle("/tunnel", servlet)
 	mux.Handle("/tunnel/", servlet)
 	mux.Handle("/websocket-tunnel", wsServer)
+	mux.HandleFunc("/policy", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			var p PolicyNotifyRequest
+			err := json.NewDecoder(r.Body).Decode(&p)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			for _, event := range p.Events {
+				for _, id := range event.IDs {
+					chManagement.BroadCast(id, 1)
+				}
+			}
+		} else {
+			http.Error(w, fmt.Sprint("not allow method"), http.StatusInternalServerError)
+		}
+	})
 	mux.HandleFunc("/sessions/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -137,4 +201,16 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 	logrus.Debug("Socket configured")
 	return guac.NewSimpleTunnel(stream), nil
+}
+
+type PolicyNotifyEvent struct {
+	TypeName string   `json:"typeName"`
+	IDs      []string `json:"ids"`
+}
+type PolicyNotifyRequest struct {
+	Events []PolicyNotifyEvent `json:"events"`
+}
+
+type PolicyResponse struct {
+	Actions []string `json:"actions"`
 }

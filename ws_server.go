@@ -25,6 +25,8 @@ type WebsocketServer struct {
 	OnConnectWs func(string, *websocket.Conn, *http.Request)
 	// OnDisconnectWs is an optional callback called when the websocket disconnects.
 	OnDisconnectWs func(string, *websocket.Conn, *http.Request, Tunnel)
+
+	channelManagement *ChannelManagement
 }
 
 // NewWebsocketServer creates a new server with a simple connect method.
@@ -45,6 +47,10 @@ const (
 	websocketReadBufferSize  = MaxGuacMessage
 	websocketWriteBufferSize = MaxGuacMessage * 2
 )
+
+func (s *WebsocketServer) AppendChannelManagement(cm *ChannelManagement) {
+	s.channelManagement = cm
+}
 
 func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
@@ -86,6 +92,12 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	logrus.Debug("Connected to tunnel")
 
+	query := r.URL.Query()
+	userId := query.Get("userId")
+	appId := query.Get("appId")
+	logrus.Debug("Query Parameters userId:", userId)
+	logrus.Debug("Query Parameters appId:", appId)
+
 	id := tunnel.ConnectionID()
 
 	if s.OnConnect != nil {
@@ -108,7 +120,21 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer tunnel.ReleaseWriter()
 	defer tunnel.ReleaseReader()
 
+	if s.channelManagement != nil {
+		ch := make(chan int, 1)
+		defer close(ch)
+		if userId != "" {
+			s.channelManagement.Add(userId, ch)
+		}
+		if appId != "" {
+			s.channelManagement.Add(appId, ch)
+		}
+
+		go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
+	}
+
 	go wsToGuacd(ws, writer)
+
 	guacdToWs(ws, reader)
 }
 
@@ -166,7 +192,10 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 
 		// if the buffer has more data in it or we've reached the max buffer size, send the data and reset
 		if !guacd.Available() || buf.Len() >= MaxGuacMessage {
-			if err = ws.WriteMessage(1, buf.Bytes()); err != nil {
+			bufbytes := buf.Bytes()
+			// bufString := string(bufbytes)
+			// logrus.Debug("got buffer:", bufString)
+			if err = ws.WriteMessage(1, bufbytes); err != nil {
 				if err == websocket.ErrCloseSent {
 					return
 				}
@@ -175,5 +204,35 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 			}
 			buf.Reset()
 		}
+	}
+}
+
+func BroadCastToWs(ws MessageWriter, ch chan int, appId string, userId string, requestPolicy func(string, string) []string) {
+	logrus.Debug("create BroadCastToWs")
+	BroadCastPolicy(ws, appId, userId, requestPolicy)
+	for {
+		op := <-ch
+		if op == 1 {
+			BroadCastPolicy(ws, appId, userId, requestPolicy)
+		}
+	}
+}
+func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolicy func(string, string) []string) {
+	actions := requestPolicy(appId, userId)
+	if actions == nil {
+		logrus.Debug("policy empty:", appId, userId)
+		return
+	}
+	instruction := []string{"policy"}
+	instruction = append(instruction, actions...)
+	ins := NewInstruction("sync", instruction...)
+	insValue := ins.String()
+	logrus.Debug("send:", insValue)
+	if err := ws.WriteMessage(1, []byte(insValue)); err != nil {
+		if err == websocket.ErrCloseSent {
+			return
+		}
+		logrus.Traceln("(testToWs) Failed sending message to ws", err)
+		return
 	}
 }
