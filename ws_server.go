@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -122,12 +123,13 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if s.channelManagement != nil {
 		ch := make(chan int, 1)
-		defer close(ch)
+		channelID := uuid.NewV4()
+		defer s.channelManagement.Remove(appId, userId, channelID.String())
 		if userId != "" {
-			s.channelManagement.Add(userId, ch)
+			s.channelManagement.Add(userId, channelID.String(), ch)
 		}
 		if appId != "" {
-			s.channelManagement.Add(appId, ch)
+			s.channelManagement.Add(appId, channelID.String(), ch)
 		}
 
 		go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)

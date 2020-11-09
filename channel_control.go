@@ -1,25 +1,52 @@
 package guac
 
+import (
+	"sync"
+)
+
 type ChannelManagement struct {
-	ChannelList       map[string][]chan int
+	ChannelList       map[string]map[string]chan int
 	RequestPolicyFunc func(string, string) []string
+	mu                sync.Mutex
 }
 
 func NewChannelManagement() *ChannelManagement {
 	return &ChannelManagement{
-		ChannelList: map[string][]chan int{},
+		ChannelList: map[string]map[string]chan int{},
 	}
 }
 
-func (c *ChannelManagement) Add(key string, ch chan int) error {
+func (c *ChannelManagement) Add(key string, ID string, ch chan int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if _, ok := c.ChannelList[key]; !ok {
-		c.ChannelList[key] = []chan int{}
+		c.ChannelList[key] = map[string]chan int{}
 	}
-	c.ChannelList[key] = append(c.ChannelList[key], ch)
+	c.ChannelList[key][ID] = ch
+	return nil
+}
+
+func (c *ChannelManagement) Remove(appID string, userID string, ID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if appList, ok := c.ChannelList[appID]; ok {
+		if appCH, ok := appList[ID]; ok {
+			close(appCH)
+			delete(appList, ID)
+		}
+	}
+	if userList, ok := c.ChannelList[userID]; ok {
+		if userCH, ok := userList[ID]; ok {
+			close(userCH)
+			delete(userList, ID)
+		}
+	}
 	return nil
 }
 
 func (c *ChannelManagement) BroadCast(key string, op int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if list, ok := c.ChannelList[key]; ok {
 		for _, ch := range list {
 			ch <- op
