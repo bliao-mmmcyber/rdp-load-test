@@ -6,7 +6,8 @@ default:
 	@echo only use this makefile to build and push docker image
 
 build_tag:
-	aws --region=us-east-1 ecr get-login --no-include-email | sh -
+	-aws --region us-east-1 ecr get-login --no-include-email | sh -
+	-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin '$(DOCKEREPO)'
 
 build: DOCKERTAG=appaegis/guac:v1.0
 build:

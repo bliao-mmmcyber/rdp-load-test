@@ -16,6 +16,8 @@ import (
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.Debugln("Debug level enabled")
+	logrus.Traceln("Trace level enabled")
 
 	// XXX
 	etcdCli := guac.NewEtcdClient()
