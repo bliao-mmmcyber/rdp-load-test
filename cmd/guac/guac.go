@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -119,7 +120,7 @@ func main() {
 		}
 	})
 
-	logrus.Println("Serving on http://127.0.0.1:4567")
+	logrus.Println("Serving on :4567")
 
 	s := &http.Server{
 		Addr:           "0.0.0.0:4567",
@@ -182,7 +183,12 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	config.AudioMimetypes = []string{"audio/L16", "rate=44100", "channels=2"}
 
 	logrus.Debug("Connecting to guacd")
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
+	var addr *net.TCPAddr
+	if os.Getenv("POD_IP") != "" {
+		addr, err = net.ResolveTCPAddr("tcp", "guacd-service:4822")
+	} else {
+		addr, err = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
+	}
 
 	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
