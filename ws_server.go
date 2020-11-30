@@ -212,8 +212,7 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 func BroadCastToWs(ws MessageWriter, ch chan int, appId string, userId string, requestPolicy func(string, string) []string) {
 	logrus.Debug("create BroadCastToWs")
 	BroadCastPolicy(ws, appId, userId, requestPolicy)
-	for {
-		op := <-ch
+	for op := range ch {
 		if op == 1 {
 			BroadCastPolicy(ws, appId, userId, requestPolicy)
 		}
