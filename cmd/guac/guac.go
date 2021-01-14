@@ -26,6 +26,9 @@ func main() {
 	pmHost := string(pmRes.Kvs[0].Value)
 	selfRes := guac.EtcdGet(etcdCli, "/dplocal/dp_setting/RDPWS_HOST")
 	selfHost := string(selfRes.Kvs[0].Value)
+	if os.Getenv("POD_IP") != "" {
+		selfHost = os.Getenv("POD_IP")+":4567"
+	}
 	requestBody := map[string]string{}
 	requestBody["address"] = selfHost
 	requestBytes, _err := json.Marshal(requestBody)
@@ -35,7 +38,7 @@ func main() {
 	}
 	resp, _err := http.Post(fmt.Sprintf("http://%s/register", pmHost), "application/json", bytes.NewBuffer(requestBytes))
 	if _err != nil {
-		logrus.Fatal("marshal failed")
+		logrus.Fatalf("post to policy server failed %s", _err.Error())
 		return
 	}
 	defer resp.Body.Close()
@@ -54,7 +57,7 @@ func main() {
 		}
 		resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", pmHost, requestParam.Encode()))
 		if _err != nil {
-			logrus.Fatal("marshal failed")
+			logrus.Fatalf("get policy failed %s", _err.Error())
 			return nil
 		}
 		defer resp.Body.Close()
