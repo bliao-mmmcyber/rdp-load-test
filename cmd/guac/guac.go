@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac"
+	//"github.com/wwt/guac/pkg/metrics"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
-
-	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac"
 )
 
 func main() {
@@ -46,7 +47,7 @@ func main() {
 	logrus.Println("response Body:", string(body))
 	// XXX
 
-	servlet := guac.NewServer(DemoDoConnect)
+	servlet := &guac.GuacServerWrapper{Server: guac.NewServer(DemoDoConnect)}
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
 
 	chManagement := guac.NewChannelManagement()
@@ -80,7 +81,7 @@ func main() {
 	mux.Handle("/tunnel", servlet)
 	mux.Handle("/tunnel/", servlet)
 	mux.Handle("/websocket-tunnel", wsServer)
-	mux.HandleFunc("/policy", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/policy", guac.WithMetrics(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
 			var p PolicyNotifyRequest
 			err := json.NewDecoder(r.Body).Decode(&p)
@@ -96,8 +97,8 @@ func main() {
 		} else {
 			http.Error(w, fmt.Sprint("not allow method"), http.StatusInternalServerError)
 		}
-	})
-	mux.HandleFunc("/sessions/", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("/sessions/", guac.WithMetrics(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		sessions.RLock()
@@ -121,7 +122,8 @@ func main() {
 		if err := json.NewEncoder(w).Encode(connIds); err != nil {
 			logrus.Error(err)
 		}
-	})
+	}))
+	mux.Handle("/metrics", promhttp.Handler())
 
 	logrus.Println("Serving on :4567")
 
@@ -225,3 +227,5 @@ type PolicyNotifyRequest struct {
 type PolicyResponse struct {
 	Actions []string `json:"actions"`
 }
+
+

@@ -37,6 +37,7 @@ func (s *MemorySessionStore) Add(id string, req *http.Request) {
 	}
 	n++
 	s.ConnIds[id] = n
+	IncRdpCount()
 	return
 }
 
@@ -53,5 +54,6 @@ func (s *MemorySessionStore) Delete(id string, req *http.Request, tunnel Tunnel)
 		return
 	}
 	s.ConnIds[id]--
+	DecRdpCount()
 	return
 }
