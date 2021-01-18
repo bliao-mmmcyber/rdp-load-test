@@ -1,19 +1,24 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/appaegis/golang-common/pkg/etcd"
+	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac"
-	//"github.com/wwt/guac/pkg/metrics"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"time"
+)
+
+var (
+	commitID string
 )
 
 func main() {
@@ -22,30 +27,8 @@ func main() {
 	logrus.Traceln("Trace level enabled")
 
 	// XXX
-	etcdCli := guac.NewEtcdClient()
-	pmRes := guac.EtcdGet(etcdCli, "/dplocal/dp_setting/POLICY_MANAGEMENT_ENDPOINT")
+	pmRes, _ := etcd.Get("/dplocal/dp_setting/POLICY_MANAGEMENT_ENDPOINT")
 	pmHost := string(pmRes.Kvs[0].Value)
-	selfRes := guac.EtcdGet(etcdCli, "/dplocal/dp_setting/RDPWS_HOST")
-	selfHost := string(selfRes.Kvs[0].Value)
-	if os.Getenv("POD_IP") != "" {
-		selfHost = os.Getenv("POD_IP")+":4567"
-	}
-	requestBody := map[string]string{}
-	requestBody["address"] = selfHost
-	requestBytes, _err := json.Marshal(requestBody)
-	if _err != nil {
-		logrus.Fatal("marshal failed")
-		return
-	}
-	resp, _err := http.Post(fmt.Sprintf("http://%s/register", pmHost), "application/json", bytes.NewBuffer(requestBytes))
-	if _err != nil {
-		logrus.Fatalf("post to policy server failed %s", _err.Error())
-		return
-	}
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	logrus.Println("response Body:", string(body))
-	// XXX
 
 	servlet := &guac.GuacServerWrapper{Server: guac.NewServer(DemoDoConnect)}
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
@@ -58,7 +41,7 @@ func main() {
 		}
 		resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", pmHost, requestParam.Encode()))
 		if _err != nil {
-			logrus.Fatalf("get policy failed %s", _err.Error())
+			logrus.Errorf("get policy failed, %s", _err.Error())
 			return nil
 		}
 		defer resp.Body.Close()
@@ -71,6 +54,8 @@ func main() {
 		}
 		return nil
 	}
+
+	go connectToAstraea(pmHost, chManagement)
 
 	sessions := guac.NewMemorySessionStore()
 	wsServer.OnConnect = sessions.Add
@@ -126,6 +111,7 @@ func main() {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	logrus.Println("Serving on :4567")
+	logrus.Println("commit id: " + commitID)
 
 	s := &http.Server{
 		Addr:           "0.0.0.0:4567",
@@ -216,6 +202,37 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	return guac.NewSimpleTunnel(stream), nil
 }
 
+func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
+	for {
+		url := fmt.Sprintf("ws://%s/ws", pmHost)
+		logrus.Infof("ws connecting to %s", url)
+
+		c, _, err := websocket.DefaultDialer.Dial(url, nil)
+		if err != nil {
+			logrus.Errorf("dial: %s", err.Error())
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
+		for {
+			request := PolicyNotifyRequest{}
+			err = c.ReadJSON(&request)
+			if err != nil {
+				logrus.Errorf("read from ws err: %s", err.Error())
+				c.Close()
+				break
+			} else {
+				logrus.Infof("received msg %#v", request)
+				for _, event := range request.Events {
+					for _, id := range event.IDs {
+						chManagement.BroadCast(id, 1)
+					}
+				}
+			}
+		}
+	}
+}
+
 type PolicyNotifyEvent struct {
 	TypeName string   `json:"typeName"`
 	IDs      []string `json:"ids"`
@@ -227,5 +244,3 @@ type PolicyNotifyRequest struct {
 type PolicyResponse struct {
 	Actions []string `json:"actions"`
 }
-
-
