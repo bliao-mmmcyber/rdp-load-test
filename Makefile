@@ -18,8 +18,8 @@ build_untag:
 
 docker: build_tag build build_untag
 
-jenkins-docker: DOCKERTAG=appaegis/guac:$(TAG)
-jenkins-docker: LATESTTAG=appaegis/guac:latest
+jenkins-docker: DOCKERTAG='$(DOCKEREPO)'/appaegis/guac:$(TAG)
+jenkins-docker: LATESTTAG='$(DOCKEREPO)'/appaegis/guac:latest
 jenkins-docker:
 	aws ecr get-login-password --region us-east-1| docker login --username AWS --password-stdin 980993447824.dkr.ecr.us-east-1.amazonaws.com
 	docker build --network=host -t '$(DOCKERTAG)' -f Dockerfile --force-rm .
