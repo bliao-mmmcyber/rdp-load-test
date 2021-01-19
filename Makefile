@@ -11,9 +11,6 @@ build_tag:
 
 build: DOCKERTAG=appaegis/guac:v1.0
 build:
-	go mod tidy
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./dist/guac  cmd/guac/guac.go
-	#
 	docker build -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile --force-rm .
 	docker push     '$(DOCKEREPO)'/'$(DOCKERTAG)'
 
@@ -25,8 +22,6 @@ jenkins-docker: DOCKERTAG=appaegis/guac:$(TAG)
 jenkins-docker: LATESTTAG=appaegis/guac:latest
 jenkins-docker:
 	aws ecr get-login-password --region us-east-1| docker login --username AWS --password-stdin 980993447824.dkr.ecr.us-east-1.amazonaws.com
-	go mod tidy
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./dist/guac  cmd/guac/guac.go
 	docker build --network=host -t '$(DOCKERTAG)' -f Dockerfile --force-rm .
 	docker push '$(DOCKERTAG)'
 	docker tag $(DOCKERTAG) $(LATESTTAG)
