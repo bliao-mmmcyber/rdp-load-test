@@ -155,6 +155,11 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	for k, v := range query {
 		config.Parameters[k] = v[0]
 	}
+	if appauthz, err := request.Cookie("appauthz"); err == nil {
+		if v, ok := config.Parameters["hostname"]; ok {
+			config.Parameters["hostname"] = v + ";" + appauthz.Value
+		}
+	}
 
 	var err error
 	if query.Get("width") != "" {
