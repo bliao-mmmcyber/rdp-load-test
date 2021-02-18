@@ -209,7 +209,7 @@ func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
 
 		c, _, err := websocket.DefaultDialer.Dial(url, nil)
 		if err != nil {
-			logrus.Errorf("dial: %s", err.Error())
+			logrus.Fatalf("dial: %s", err.Error())
 			time.Sleep(10 * time.Second)
 			continue
 		}
