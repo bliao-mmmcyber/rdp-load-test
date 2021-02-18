@@ -41,7 +41,7 @@ func main() {
 		}
 		resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", pmHost, requestParam.Encode()))
 		if _err != nil {
-			logrus.Errorf("get policy failed, %s", _err.Error())
+			logrus.Fatalf("get policy failed, %s", _err.Error())
 			return nil
 		}
 		defer resp.Body.Close()
