@@ -155,11 +155,15 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	for k, v := range query {
 		config.Parameters[k] = v[0]
 	}
-	if appauthz, err := request.Cookie("appauthz"); err == nil {
-		if v, ok := config.Parameters["hostname"]; ok {
-			config.Parameters["hostname"] = v + ";" + appauthz.Value
-		}
-	}
+
+	// TODO: AC-507
+	//if v, ok := config.Parameters["hostname"]; ok {
+	//	if strings.Contains(v, "template-rdp") {
+	//		if appauthz, err := request.Cookie("appauthz"); err == nil {
+	//			config.Parameters["hostname"] = v + ";" + appauthz.Value
+	//		}
+	//	}
+	//}
 
 	var err error
 	if query.Get("width") != "" {
