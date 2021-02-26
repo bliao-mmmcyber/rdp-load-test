@@ -48,6 +48,12 @@ pipeline {
                 sh """
                     make TAG=$IMAGE_TAG jenkins-docker
                 """
+                script {
+                    if (env.BRANCH_NAME == 'master') {
+                        sh(script: "docker tag 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:${IMAGE_TAG} 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:latest")
+                        sh(script: "docker push 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:latest")
+                    }
+                }
             }
         }
         stage('Test') {

@@ -28,7 +28,5 @@ jenkins-docker:
 	docker tag      '$(BUILD_BASE)' build-base
 	docker build --network=host -t '$(DOCKERTAG)' -f Dockerfile --force-rm .
 	docker push '$(DOCKERTAG)'
-	docker tag $(DOCKERTAG) $(LATESTTAG)
-	docker push '$(LATESTTAG)'
 
 
