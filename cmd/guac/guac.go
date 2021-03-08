@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -158,13 +157,13 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 
 	// TODO: AC-507
-	if v, ok := config.Parameters["hostname"]; ok {
-		if strings.Contains(v, "template-rdp") {
-			if appauthz, err := request.Cookie("appauthz"); err == nil {
-				config.Parameters["hostname"] = v + ";" + appauthz.Value
-			}
-		}
-	}
+	//if v, ok := config.Parameters["hostname"]; ok {
+	//	if strings.Contains(v, "template-rdp") {
+	//		if appauthz, err := request.Cookie("appauthz"); err == nil {
+	//			config.Parameters["hostname"] = v + ";" + appauthz.Value
+	//		}
+	//	}
+	//}
 
 	var err error
 	if query.Get("width") != "" {
