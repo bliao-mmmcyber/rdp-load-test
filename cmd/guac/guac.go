@@ -27,6 +27,7 @@ func main() {
 	logrus.Traceln("Trace level enabled")
 
 	// XXX
+	etcd.NewWithEnv()
 	pmRes, _ := etcd.Get("/dplocal/dp_setting/POLICY_MANAGEMENT_ENDPOINT")
 	pmHost := string(pmRes.Kvs[0].Value)
 
