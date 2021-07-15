@@ -184,6 +184,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	if actions := requestPolicy(appId, userId); actions != nil {
 		permissions = strings.Join(actions, ",")
 	}
+	logrus.Infof("app %s, user %s, permissions %s", appId, userId, permissions)
 	if strings.Contains(permissions, "copy") {
 		config.Parameters["disable-copy"] = "false"
 	} else {
