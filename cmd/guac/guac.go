@@ -184,7 +184,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		UserEmail: userId,
 		AppID:     appId,
 		RoleIDs:   strings.Split(roleIds, ","),
-		ClientIP:  query.Get("clientIp"),
+		ClientIP:  strings.Split(query.Get("clientIp"), ":")[0],
 	})
 
 	alertRulesString := query.Get("alertRules")
@@ -203,7 +203,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		sessionAlertRuleData.RuleIDs = make(map[string][]string)
 		sessionAlertRuleData.Rules = make(map[string]*guac.AlertRuleData)
 		sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
-		sessionAlertRuleData.ClientIP = query.Get("clientIp")
+		sessionAlertRuleData.ClientIP = strings.Split(query.Get("clientIp"), ":")[0]
 		sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
 
 		logrus.Printf("role ids: %v", roleIds)
