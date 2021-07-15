@@ -40,26 +40,7 @@ func main() {
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
 
 	chManagement := guac.NewChannelManagement()
-	chManagement.RequestPolicyFunc = func(appID string, userID string) []string {
-		requestParam := url.Values{
-			"userID": []string{userID},
-			"appID":  []string{appID},
-		}
-		resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", pmHost, requestParam.Encode()))
-		if _err != nil {
-			logrus.Fatalf("get policy failed, %s", _err.Error())
-			return nil
-		}
-		defer resp.Body.Close()
-
-		var p PolicyResponse
-		body, _ := ioutil.ReadAll(resp.Body)
-		json.Unmarshal(body, &p)
-		if p.Actions != nil {
-			return p.Actions
-		}
-		return nil
-	}
+	chManagement.RequestPolicyFunc = requestPolicy
 
 	go connectToAstraea(pmHost, chManagement)
 
@@ -132,6 +113,27 @@ func main() {
 	}
 }
 
+func requestPolicy(appID string, userID string) []string {
+	requestParam := url.Values{
+		"userID": []string{userID},
+		"appID":  []string{appID},
+	}
+	resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", env.PolicyManagementHost, requestParam.Encode()))
+	if _err != nil {
+		logrus.Fatalf("get policy failed, %s", _err.Error())
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var p PolicyResponse
+	body, _ := ioutil.ReadAll(resp.Body)
+	json.Unmarshal(body, &p)
+	if p.Actions != nil {
+		return p.Actions
+	}
+	return nil
+}
+
 // DemoDoConnect creates the tunnel to the remote machine (via guacd)
 func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	config := guac.NewGuacamoleConfiguration()
@@ -178,6 +180,20 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	roleIds := query.Get("roleIds")
 	appId := query.Get("appId")
 	userId := query.Get("userId")
+	var permissions string
+	if actions := requestPolicy(appId, userId); actions != nil {
+		permissions = strings.Join(actions, ",")
+	}
+	if strings.Contains(permissions, "copy") {
+		config.Parameters["disable-copy"] = "false"
+	} else {
+		config.Parameters["disable-copy"] = "true"
+	}
+	if strings.Contains(permissions, "paste") {
+		config.Parameters["disable-paste"] = "false"
+	} else {
+		config.Parameters["disable-paste"] = "true"
+	}
 
 	logging.Log(logging.Action{
 		AppTag:    "guac.connect",
