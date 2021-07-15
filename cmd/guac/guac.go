@@ -3,17 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/appaegis/golang-common/pkg/etcd"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac"
+	"github.com/wwt/guac/lib/env"
+	"github.com/wwt/guac/lib/geoip"
+	"github.com/wwt/guac/lib/logging"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,14 +25,16 @@ var (
 )
 
 func main() {
+	env.Init()
+	geoip.Init()
+	logging.Init()
+	defer logging.Close()
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.Debugln("Debug level enabled")
 	logrus.Traceln("Trace level enabled")
 
 	// XXX
-	etcd.NewWithEnv()
-	pmRes, _ := etcd.Get("/dplocal/dp_setting/POLICY_MANAGEMENT_ENDPOINT")
-	pmHost := string(pmRes.Kvs[0].Value)
+	pmHost := env.PolicyManagementHost
 
 	servlet := &guac.GuacServerWrapper{Server: guac.NewServer(DemoDoConnect)}
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
@@ -156,13 +161,62 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	for k, v := range query {
 		config.Parameters[k] = v[0]
 	}
+	// no need to pass alert rules specific data to guacmole
+	delete(config.Parameters, "tenantId")
+	delete(config.Parameters, "alertRules")
+	delete(config.Parameters, "clientIp")
+	delete(config.Parameters, "role_ids")
 
 	// TODO: AC-507
-	if appauthz, err := request.Cookie("appauthz"); err == nil {
+	appauthz, err := request.Cookie("appauthz")
+	if err == nil {
 		config.Parameters["gateway-password"] = appauthz.Value
 	}
 
-	var err error
+	// AC-938: alert rules
+	tenantId := query.Get("tenantId")
+	roleIds := query.Get("roleIds")
+	appId := query.Get("appId")
+	userId := query.Get("userId")
+
+	logging.Log(logging.Action{
+		AppTag: "guac.connect",
+		UserEmail: userId,
+		AppID: appId,
+		// TODO add client ip
+		// TODO add role ids
+	})
+
+	alertRulesString := query.Get("alertRules")
+	sessionDataKey := appId + "/" + userId
+	sessionAlertRuleData := &guac.SessionAlertRuleData{}
+	alertRules := []guac.AlertRuleData{}
+	if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {
+		logrus.Infof("alertRulesString %s", alertRulesString)
+		logrus.Errorf("failed to unmarshal alert rules %s", err.Error())
+	} else {
+		sessionAlertRuleData.TenantID = tenantId
+		sessionAlertRuleData.AppID = appId
+		sessionAlertRuleData.Email = userId
+		sessionAlertRuleData.RoleIDs = strings.Split(roleIds, ",")
+		sessionAlertRuleData.IDToken = appauthz.Value
+		sessionAlertRuleData.RuleIDs = make(map[string][]string)
+		sessionAlertRuleData.Rules = make(map[string]*guac.AlertRuleData)
+		sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
+		sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
+		
+		logrus.Printf("role ids: %v", roleIds)
+		for i := range alertRules {
+			data := alertRules[i]
+			sessionAlertRuleData.Rules[data.RuleID] = &data
+			for _, action := range data.EventTypes {
+				sessionAlertRuleData.RuleIDs[action] = append(sessionAlertRuleData.RuleIDs[action], data.RuleID)
+			}
+		}
+		guac.SessionDataStore.Set(sessionDataKey, sessionAlertRuleData)
+		logrus.Printf("session data stored %s %v", sessionDataKey, sessionAlertRuleData)
+	}
+
 	if query.Get("width") != "" {
 		config.OptimalScreenHeight, err = strconv.Atoi(query.Get("width"))
 		if err != nil || config.OptimalScreenHeight == 0 {

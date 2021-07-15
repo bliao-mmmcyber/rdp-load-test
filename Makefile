@@ -29,4 +29,5 @@ jenkins-docker:
 	docker build --network=host -t '$(DOCKERTAG)' -f Dockerfile --force-rm .
 	docker push '$(DOCKERTAG)'
 
-
+test:
+	@go test ./... | grep -v '^?'

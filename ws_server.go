@@ -2,13 +2,21 @@ package guac
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/lib/logging"
 )
+
+var appaegisCmdOpcodeIns = []byte("5.AACMD")
+var downloadCmdOpcodeIns = []byte("3.get")
+var uploadCmdOpcodeIns = []byte("3.put")
 
 // WebsocketServer implements a websocket-based connection to guacd.
 type WebsocketServer struct {
@@ -52,6 +60,11 @@ const (
 func (s *WebsocketServer) AppendChannelManagement(cm *ChannelManagement) {
 	s.channelManagement = cm
 }
+
+// XXX check how can we get this appauthz value
+// if appauthz, err := request.Cookie("appauthz"); err == nil {
+// 	config.Parameters["gateway-password"] = appauthz.Value
+// }
 
 func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
@@ -99,6 +112,15 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logrus.Debug("Query Parameters userId:", userId)
 	logrus.Debug("Query Parameters appId:", appId)
 
+	sessionDataKey := appId + "/" + userId
+	defer func() {
+		logrus.Infof("session data delete: %s", sessionDataKey)
+		SessionDataStore.Delete(sessionDataKey)
+	}()
+	if data, ok := SessionDataStore.Get(sessionDataKey).(SessionAlertRuleData); ok {
+		logrus.Infof("session data alert rules: %v", data)
+	}
+
 	id := tunnel.ConnectionID()
 
 	if s.OnConnect != nil {
@@ -135,7 +157,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
 	}
 
-	go wsToGuacd(ws, writer)
+	go wsToGuacd(ws, writer, sessionDataKey)
 
 	guacdToWs(ws, reader)
 }
@@ -146,7 +168,7 @@ type MessageReader interface {
 	ReadMessage() (int, []byte, error)
 }
 
-func wsToGuacd(ws MessageReader, guacd io.Writer) {
+func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string) {
 	for {
 		_, data, err := ws.ReadMessage()
 		if err != nil {
@@ -156,6 +178,18 @@ func wsToGuacd(ws MessageReader, guacd io.Writer) {
 
 		if bytes.HasPrefix(data, internalOpcodeIns) {
 			// messages starting with the InternalDataOpcode are never sent to guacd
+			continue
+		}
+
+		// download/upload check
+		// if bytes.HasPrefix(data, downloadCmdOpcodeIns) ||
+		// 	bytes.HasPrefix(data, uploadCmdOpcodeIns) {
+		// 	handleAppaegisCommand(ws, data, sessionDataKey)
+		// 	continue
+		// }
+
+		if bytes.HasPrefix(data, appaegisCmdOpcodeIns) {
+			handleAppaegisCommand(ws, data, sessionDataKey)
 			continue
 		}
 
@@ -235,5 +269,85 @@ func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolic
 		}
 		logrus.Traceln("(testToWs) Failed sending message to ws", err)
 		return
+	}
+}
+
+type J map[string]interface{}
+
+func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string) {
+	logrus.Printf("receive: %s\n", cmd)
+	instruction, err := Parse(cmd)
+	if err != nil {
+		logrus.Println("Instruction parse error: ", err)
+		return
+	}
+	// TODO check if Opcode is supported
+	ses, ok := SessionDataStore.Get(sessionDataKey).(*SessionAlertRuleData)
+	if !ok {
+		logrus.Infof("session data not found: %s", sessionDataKey)
+		return
+	}
+	logrus.Infof("session data %v", ses)
+
+	result := J{}
+	op := instruction.Args[0]
+	requestID := instruction.Args[1]
+	logrus.Printf("op: %s, requestID: %s", op, requestID)
+
+	// operations switch
+	if op == "download-check" {
+		fileCount, err := strconv.Atoi(instruction.Args[2])
+		if err != nil {
+			fileCount = 1
+		}
+		ok, block := CheckAlertRule(ses, "download", fileCount)
+		if !ok && block {
+			result = J{
+				"ok": false,
+			}
+		} else {
+			result = J{
+				"ok": true,
+				"prompt": !ok,
+			}
+		}
+	} else if op == "log-download" {
+		fileCount, err := strconv.Atoi(instruction.Args[2])
+		if err != nil {
+			fileCount = 1
+		}
+		logging.Log(logging.Action{
+			AppTag:    "guac.download",
+			TenantID:  ses.TenantID,
+			UserEmail: ses.Email,
+			AppID:     ses.AppID,
+			RoleIDs:   ses.RoleIDs,
+			FileCount: fileCount,
+		})
+		IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
+		result = J{
+			"ok": true,
+			"count": fileCount,
+		}
+	} else {
+		logging.Log(logging.Action{
+			AppTag:    "guac." + strings.ToLower(op),
+			TenantID:  ses.TenantID,
+			UserEmail: ses.Email,
+			AppID:     ses.AppID,
+			RoleIDs:   ses.RoleIDs,
+			// TODO role ids, tenant id...
+		})
+		result = J{
+			"ng": 1,
+		}
+	}
+
+	resultJSON, _ := json.Marshal(result)
+	respInstruction := NewInstruction("appaegis-resp", requestID, string(resultJSON))
+	resp := []byte(respInstruction.String())
+	logrus.Debug("appaegis cmd send: ", string(resp))
+	if err := ws.WriteMessage(websocket.TextMessage, resp); err != nil {
+		logrus.Println("write error: ", err)
 	}
 }

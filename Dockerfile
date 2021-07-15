@@ -15,6 +15,7 @@ ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-muslc-
 RUN chmod +x /bin/tini
 
 COPY --from=build-env /go/src/app/guac /home/appaegis/bin/guac
+ADD assets /home/appaegis/guac-assets
 
 ENV ETCD_ENDPOINTS=http://127.0.0.1:2379
 ENV ETCD_USERNAME=root
