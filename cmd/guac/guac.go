@@ -180,11 +180,11 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	userId := query.Get("userId")
 
 	logging.Log(logging.Action{
-		AppTag: "guac.connect",
+		AppTag:    "guac.connect",
 		UserEmail: userId,
-		AppID: appId,
-		// TODO add client ip
-		// TODO add role ids
+		AppID:     appId,
+		RoleIDs:   strings.Split(roleIds, ","),
+		ClientIP:  query.Get("clientIp"),
 	})
 
 	alertRulesString := query.Get("alertRules")
@@ -203,8 +203,9 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		sessionAlertRuleData.RuleIDs = make(map[string][]string)
 		sessionAlertRuleData.Rules = make(map[string]*guac.AlertRuleData)
 		sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
+		sessionAlertRuleData.ClientIP = query.Get("clientIp")
 		sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
-		
+
 		logrus.Printf("role ids: %v", roleIds)
 		for i := range alertRules {
 			data := alertRules[i]

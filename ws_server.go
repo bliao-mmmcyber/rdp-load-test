@@ -61,11 +61,6 @@ func (s *WebsocketServer) AppendChannelManagement(cm *ChannelManagement) {
 	s.channelManagement = cm
 }
 
-// XXX check how can we get this appauthz value
-// if appauthz, err := request.Cookie("appauthz"); err == nil {
-// 	config.Parameters["gateway-password"] = appauthz.Value
-// }
-
 func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  websocketReadBufferSize,
@@ -272,6 +267,7 @@ func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolic
 	}
 }
 
+// J json response helper type
 type J map[string]interface{}
 
 func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string) {
@@ -281,7 +277,6 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		logrus.Println("Instruction parse error: ", err)
 		return
 	}
-	// TODO check if Opcode is supported
 	ses, ok := SessionDataStore.Get(sessionDataKey).(*SessionAlertRuleData)
 	if !ok {
 		logrus.Infof("session data not found: %s", sessionDataKey)
@@ -323,6 +318,7 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 			AppID:     ses.AppID,
 			RoleIDs:   ses.RoleIDs,
 			FileCount: fileCount,
+			ClientIP:  ses.ClientIP,
 		})
 		IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
 		result = J{
@@ -336,7 +332,7 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 			UserEmail: ses.Email,
 			AppID:     ses.AppID,
 			RoleIDs:   ses.RoleIDs,
-			// TODO role ids, tenant id...
+			ClientIP:  ses.ClientIP,
 		})
 		result = J{
 			"ng": 1,

@@ -27,6 +27,7 @@ type Action struct {
 	UserEmail    string   `json:"userEmail"`
 	Username     string   `json:"username"`
 	FileCount    int      `json:"fileCount,omitempty"`
+	ClientIP     string   `json:"client_ip"`
 }
 
 // Init manually create report file

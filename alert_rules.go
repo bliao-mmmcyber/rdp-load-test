@@ -30,6 +30,7 @@ type SessionAlertRuleData struct {
 	Email            string
 	IDToken          string
 	ClientIsoCountry string
+	ClientIP         string
 	// RuleIDs ruleAction -> rule IDs
 	RuleIDs map[string][]string
 	// RuleID -> AlertRuleData
