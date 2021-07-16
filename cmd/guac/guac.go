@@ -180,17 +180,17 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	roleIds := query.Get("roleIds")
 	appId := query.Get("appId")
 	userId := query.Get("userId")
-	//var permissions string
-	//if actions := requestPolicy(appId, userId); actions != nil {
-	//	permissions = strings.Join(actions, ",")
-	//}
-	//logrus.Infof("app %s, user %s, permissions %s", appId, userId, permissions)
-	//if !strings.Contains(permissions, "copy") {
-	//	config.Parameters["disable-copy"] = "true"
-	//}
-	//if !strings.Contains(permissions, "paste") {
-	//	config.Parameters["disable-paste"] = "true"
-	//}
+	var permissions string
+	if actions := requestPolicy(appId, userId); actions != nil {
+		permissions = strings.Join(actions, ",")
+	}
+	logrus.Infof("app %s, user %s, permissions %s", appId, userId, permissions)
+	if !strings.Contains(permissions, "copy") {
+		config.Parameters["disable-copy"] = "true"
+	}
+	if !strings.Contains(permissions, "paste") {
+		config.Parameters["disable-paste"] = "true"
+	}
 
 	logging.Log(logging.Action{
 		AppTag:    "guac.connect",
