@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
@@ -302,7 +302,7 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 			}
 		} else {
 			result = J{
-				"ok": true,
+				"ok":     true,
 				"prompt": !ok,
 			}
 		}
@@ -322,8 +322,20 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		})
 		IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
 		result = J{
-			"ok": true,
+			"ok":    true,
 			"count": fileCount,
+		}
+	} else if op == "dlp-upload" {
+		fileName := instruction.Args[2]
+		logrus.Debug("dlp-upload: ", fileName)
+		result = J{
+			"ok": true,
+		}
+	} else if op == "dlp-download" {
+		fileName := instruction.Args[2]
+		logrus.Debug("dlp-download: ", fileName)
+		result = J{
+			"ok": true,
 		}
 	} else {
 		logging.Log(logging.Action{

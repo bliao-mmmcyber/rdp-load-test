@@ -3,13 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac"
-	"github.com/wwt/guac/lib/env"
-	"github.com/wwt/guac/lib/geoip"
-	"github.com/wwt/guac/lib/logging"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -18,6 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac"
+	"github.com/wwt/guac/lib/env"
+	"github.com/wwt/guac/lib/geoip"
+	"github.com/wwt/guac/lib/logging"
 )
 
 var (
@@ -32,6 +33,8 @@ func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.Debugln("Debug level enabled")
 	logrus.Traceln("Trace level enabled")
+
+	os.MkdirAll("/efs/rdp", 0755)
 
 	// XXX
 	pmHost := env.PolicyManagementHost
@@ -202,22 +205,24 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	alertRulesString := query.Get("alertRules")
 	sessionDataKey := appId + "/" + userId
+
 	sessionAlertRuleData := &guac.SessionAlertRuleData{}
+	sessionAlertRuleData.TenantID = tenantId
+	sessionAlertRuleData.AppID = appId
+	sessionAlertRuleData.Email = userId
+	sessionAlertRuleData.RoleIDs = strings.Split(roleIds, ",")
+	sessionAlertRuleData.IDToken = appauthz.Value
+	sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
+	sessionAlertRuleData.ClientIP = strings.Split(query.Get("clientIp"), ":")[0]
+	sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
+
 	alertRules := []guac.AlertRuleData{}
 	if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {
 		logrus.Infof("alertRulesString %s", alertRulesString)
 		logrus.Errorf("failed to unmarshal alert rules %s", err.Error())
 	} else {
-		sessionAlertRuleData.TenantID = tenantId
-		sessionAlertRuleData.AppID = appId
-		sessionAlertRuleData.Email = userId
-		sessionAlertRuleData.RoleIDs = strings.Split(roleIds, ",")
-		sessionAlertRuleData.IDToken = appauthz.Value
 		sessionAlertRuleData.RuleIDs = make(map[string][]string)
 		sessionAlertRuleData.Rules = make(map[string]*guac.AlertRuleData)
-		sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
-		sessionAlertRuleData.ClientIP = strings.Split(query.Get("clientIp"), ":")[0]
-		sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
 
 		logrus.Printf("role ids: %v", roleIds)
 		for i := range alertRules {
@@ -227,9 +232,9 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 				sessionAlertRuleData.RuleIDs[action] = append(sessionAlertRuleData.RuleIDs[action], data.RuleID)
 			}
 		}
-		guac.SessionDataStore.Set(sessionDataKey, sessionAlertRuleData)
-		logrus.Printf("session data stored %s %v", sessionDataKey, sessionAlertRuleData)
 	}
+	guac.SessionDataStore.Set(sessionDataKey, sessionAlertRuleData)
+	logrus.Printf("session data stored %s %v", sessionDataKey, sessionAlertRuleData)
 
 	if query.Get("width") != "" {
 		config.OptimalScreenHeight, err = strconv.Atoi(query.Get("width"))
