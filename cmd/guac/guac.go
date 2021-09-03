@@ -34,7 +34,7 @@ func main() {
 	logrus.Debugln("Debug level enabled")
 	logrus.Traceln("Trace level enabled")
 
-	os.MkdirAll("/efs/rdp", 0755)
+	os.MkdirAll("/efs/rdp", 0777)
 
 	// XXX
 	pmHost := env.PolicyManagementHost
@@ -183,6 +183,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	roleIds := query.Get("roleIds")
 	appId := query.Get("appId")
 	userId := query.Get("userId")
+	appName := query.Get("appName")
 	var permissions string
 	if actions := requestPolicy(appId, userId); actions != nil {
 		permissions = strings.Join(actions, ",")
@@ -206,7 +207,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	alertRulesString := query.Get("alertRules")
 	sessionDataKey := appId + "/" + userId
 
-	sessionAlertRuleData := &guac.SessionAlertRuleData{}
+	sessionAlertRuleData := &guac.SessionCommonData{}
 	sessionAlertRuleData.TenantID = tenantId
 	sessionAlertRuleData.AppID = appId
 	sessionAlertRuleData.Email = userId
@@ -215,6 +216,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
 	sessionAlertRuleData.ClientIP = strings.Split(query.Get("clientIp"), ":")[0]
 	sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
+	sessionAlertRuleData.AppName = appName
 
 	alertRules := []guac.AlertRuleData{}
 	if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {

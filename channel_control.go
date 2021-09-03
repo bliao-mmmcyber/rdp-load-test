@@ -2,6 +2,8 @@ package guac
 
 import (
 	"sync"
+
+	"github.com/sirupsen/logrus"
 )
 
 type ChannelManagement struct {
@@ -29,6 +31,7 @@ func (c *ChannelManagement) Add(key string, ID string, ch chan int) error {
 func (c *ChannelManagement) Remove(appID string, userID string, ID string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	logrus.Info("Remove channel")
 	if appList, ok := c.ChannelList[appID]; ok {
 		if appCH, ok := appList[ID]; ok {
 			close(appCH)

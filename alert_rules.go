@@ -24,13 +24,14 @@ type AlertRuleData struct {
 	SessionCount int
 }
 
-type SessionAlertRuleData struct {
+type SessionCommonData struct {
 	TenantID         string
 	AppID            string
 	Email            string
 	IDToken          string
 	ClientIsoCountry string
 	ClientIP         string
+	AppName          string
 	// RuleIDs ruleAction -> rule IDs
 	RuleIDs map[string][]string
 	// RuleID -> AlertRuleData
@@ -57,7 +58,7 @@ type alertRuleDataRule struct {
 }
 
 // CheckAlertRule add up count this action will incur, and check if user can perform the action
-func CheckAlertRule(ses *SessionAlertRuleData, action string, actionCount int) (canDo bool, hardBlock bool) {
+func CheckAlertRule(ses *SessionCommonData, action string, actionCount int) (canDo bool, hardBlock bool) {
 	canDo = true
 	hardBlock = false
 	// XXX maybe we should merge into current rule check
@@ -198,7 +199,7 @@ func fetchAlertRuleData(authToken string, appID string, userName string, alertRu
 	return &data
 }
 
-func IncrAlertRuleSessionCountByNumber(ses *SessionAlertRuleData, action string, count int) {
+func IncrAlertRuleSessionCountByNumber(ses *SessionCommonData, action string, count int) {
 	ruleIds, found := ses.RuleIDs[action]
 	if !found {
 		return
@@ -206,8 +207,8 @@ func IncrAlertRuleSessionCountByNumber(ses *SessionAlertRuleData, action string,
 
 	for _, ruleID := range ruleIds {
 		if rule, found := ses.Rules[ruleID]; found {
-		  rule.SessionCount += count
-		  log.Infof("%s aggr count %s %d", action, ruleID, rule.SessionCount)
+			rule.SessionCount += count
+			log.Infof("%s aggr count %s %d", action, ruleID, rule.SessionCount)
 		}
 	}
 }

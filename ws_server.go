@@ -3,15 +3,20 @@ package guac
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/lib/env"
 	"github.com/wwt/guac/lib/logging"
+
+	"github.com/appaegis/golang-common/pkg/httpclient"
 )
 
 var appaegisCmdOpcodeIns = []byte("5.AACMD")
@@ -112,7 +117,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logrus.Infof("session data delete: %s", sessionDataKey)
 		SessionDataStore.Delete(sessionDataKey)
 	}()
-	if data, ok := SessionDataStore.Get(sessionDataKey).(SessionAlertRuleData); ok {
+	if data, ok := SessionDataStore.Get(sessionDataKey).(SessionCommonData); ok {
 		logrus.Infof("session data alert rules: %v", data)
 	}
 
@@ -155,6 +160,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go wsToGuacd(ws, writer, sessionDataKey)
 
 	guacdToWs(ws, reader)
+	logrus.Info("server HTTP done")
 }
 
 // MessageReader wraps a websocket connection and only permits Reading
@@ -267,6 +273,10 @@ func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolic
 	}
 }
 
+func GetDrivePathInEFS(tenantID, appID, userID string) string {
+	return fmt.Sprintf("/efs/rdp/rdp_system_%s_%s_%s", tenantID, appID, userID)
+}
+
 // J json response helper type
 type J map[string]interface{}
 
@@ -277,7 +287,7 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		logrus.Println("Instruction parse error: ", err)
 		return
 	}
-	ses, ok := SessionDataStore.Get(sessionDataKey).(*SessionAlertRuleData)
+	ses, ok := SessionDataStore.Get(sessionDataKey).(*SessionCommonData)
 	if !ok {
 		logrus.Infof("session data not found: %s", sessionDataKey)
 		return
@@ -328,12 +338,52 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 	} else if op == "dlp-upload" {
 		fileName := instruction.Args[2]
 		logrus.Debug("dlp-upload: ", fileName)
+
+		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", env.DLPClientEndPoint), map[string]string{
+			"Content-Type": "application/json",
+		}, map[string]interface{}{
+			"appID":      ses.AppID,
+			"tenantID":   ses.TenantID,
+			"path":       fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
+			"user":       ses.Email,
+			"service":    "rdp",
+			"actionType": "upload",
+			"location":   ses.ClientIsoCountry,
+			"appName":    ses.AppName,
+			"fileName":   fileName,
+			"timestamp":  time.Now().UnixNano() / 1000000,
+			"deleted":    true,
+		})
+		fetcher.Do()
+
 		result = J{
 			"ok": true,
 		}
 	} else if op == "dlp-download" {
-		fileName := instruction.Args[2]
-		logrus.Debug("dlp-download: ", fileName)
+		filePath := instruction.Args[2]
+		logrus.Debug("dlp-download: ", filePath)
+		fileTokens := strings.Split(filePath, "/")
+		fileName := fileTokens[0]
+		if len(fileTokens) > 0 {
+			fileName = fileTokens[len(fileTokens)-1]
+		}
+		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", env.DLPClientEndPoint), map[string]string{
+			"Content-Type": "application/json",
+		}, map[string]interface{}{
+			"appID":      ses.AppID,
+			"tenantID":   ses.TenantID,
+			"path":       fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath),
+			"user":       ses.Email,
+			"service":    "rdp",
+			"actionType": "download",
+			"location":   ses.ClientIsoCountry,
+			"appName":    ses.AppName,
+			"fileName":   fileName,
+			"timestamp":  time.Now().UnixNano() / 1000000,
+			"deleted":    true,
+		})
+		fetcher.Do()
+
 		result = J{
 			"ok": true,
 		}

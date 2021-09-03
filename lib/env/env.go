@@ -8,7 +8,8 @@ var (
 	// PolicyManagementHost Policy Management Host
 	PolicyManagementHost string
 	// PortalAPIHost Portal API Host
-	PortalAPIHost string
+	PortalAPIHost     string
+	DLPClientEndPoint string
 )
 
 // Init manaully fetch runtime environment variables
@@ -19,4 +20,7 @@ func Init() {
 
 	portalAPIHostRes, _ := etcd.Get("/dplocal/dp_setting/PORTAL_API_HOST")
 	PortalAPIHost = string(portalAPIHostRes.Kvs[0].Value)
+
+	DLPClientEndPointRes, _ := etcd.Get("/dplocal/dp_setting/DLP_CLIENT_HOST")
+	DLPClientEndPoint = string(DLPClientEndPointRes.Kvs[0].Value)
 }
