@@ -352,7 +352,6 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 			"appName":    ses.AppName,
 			"fileName":   fileName,
 			"timestamp":  time.Now().UnixNano() / 1000000,
-			"deleted":    true,
 		})
 		fetcher.Do()
 
@@ -380,7 +379,6 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 			"appName":    ses.AppName,
 			"fileName":   fileName,
 			"timestamp":  time.Now().UnixNano() / 1000000,
-			"deleted":    true,
 		})
 		fetcher.Do()
 
