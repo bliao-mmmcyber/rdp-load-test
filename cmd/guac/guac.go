@@ -3,6 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac"
+	"github.com/wwt/guac/lib/env"
+	"github.com/wwt/guac/lib/geoip"
+	"github.com/wwt/guac/lib/logging"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -11,14 +19,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac"
-	"github.com/wwt/guac/lib/env"
-	"github.com/wwt/guac/lib/geoip"
-	"github.com/wwt/guac/lib/logging"
 )
 
 var (
@@ -196,6 +196,10 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	if !strings.Contains(permissions, "paste") {
 		config.Parameters["disable-paste"] = "true"
 	}
+	config.Parameters["recording-path"] = "/tmp"
+	config.Parameters["create-recording-path"] = "true"
+	config.Parameters["recording-include-keys"] = "true"
+	config.Parameters["recording-name"] = fmt.Sprintf("%s-%s-%s", tenantId, userId, uuid.NewV4().String())
 
 	logging.Log(logging.Action{
 		AppTag:    "guac.connect",
