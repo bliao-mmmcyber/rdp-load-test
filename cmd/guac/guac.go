@@ -35,6 +35,7 @@ func main() {
 	logrus.Traceln("Trace level enabled")
 
 	os.MkdirAll("/efs/rdp", 0777)
+	os.Chmod("/efs/rdp", os.ModePerm)
 
 	// XXX
 	pmHost := env.PolicyManagementHost
