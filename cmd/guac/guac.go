@@ -217,14 +217,14 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	sessionAlertRuleData.ClientIP = strings.Split(query.Get("clientIp"), ":")[0]
 	sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
 	sessionAlertRuleData.AppName = appName
+	sessionAlertRuleData.RuleIDs = make(map[string][]string)
+	sessionAlertRuleData.Rules = make(map[string]*guac.AlertRuleData)
 
 	alertRules := []guac.AlertRuleData{}
 	if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {
 		logrus.Infof("alertRulesString %s", alertRulesString)
 		logrus.Errorf("failed to unmarshal alert rules %s", err.Error())
 	} else {
-		sessionAlertRuleData.RuleIDs = make(map[string][]string)
-		sessionAlertRuleData.Rules = make(map[string]*guac.AlertRuleData)
 
 		logrus.Printf("role ids: %v", roleIds)
 		for i := range alertRules {
