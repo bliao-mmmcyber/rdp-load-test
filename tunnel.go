@@ -3,6 +3,7 @@ package guac
 import (
 	"fmt"
 	"github.com/satori/go.uuid"
+	"github.com/wwt/guac/lib/logging"
 	"io"
 )
 
@@ -47,6 +48,8 @@ type Tunnel interface {
 	ConnectionID() string
 	// Close closes the tunnel
 	Close() error
+
+	GetLoggingInfo() logging.LoggingInfo
 }
 
 // Base Tunnel implementation which synchronizes access to the underlying reader and writer with locks
@@ -60,14 +63,21 @@ type SimpleTunnel struct {
 	uuid       uuid.UUID
 	readerLock CountedLock
 	writerLock CountedLock
+
+	loggingInfo logging.LoggingInfo
 }
 
 // NewSimpleTunnel creates a new tunnel
-func NewSimpleTunnel(stream *Stream) *SimpleTunnel {
+func NewSimpleTunnel(stream *Stream, uuid uuid.UUID, info logging.LoggingInfo) *SimpleTunnel {
 	return &SimpleTunnel{
-		stream: stream,
-		uuid:   uuid.NewV4(),
+		stream:      stream,
+		uuid:        uuid,
+		loggingInfo: info,
 	}
+}
+
+func (t *SimpleTunnel) GetLoggingInfo() logging.LoggingInfo {
+	return t.loggingInfo
 }
 
 // AcquireReader acquires the reader lock

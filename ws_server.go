@@ -142,6 +142,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer tunnel.ReleaseWriter()
 	defer tunnel.ReleaseReader()
+	defer AddEncodeRecoding(tunnel.GetLoggingInfo())
 
 	if s.channelManagement != nil {
 		ch := make(chan int, 1)
@@ -158,8 +159,8 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go wsToGuacd(ws, writer, sessionDataKey)
-
 	guacdToWs(ws, reader)
+
 	logrus.Info("server HTTP done")
 }
 

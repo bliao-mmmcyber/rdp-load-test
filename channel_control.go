@@ -39,8 +39,8 @@ func (c *ChannelManagement) Remove(appID string, userID string, ID string) error
 		}
 	}
 	if userList, ok := c.ChannelList[userID]; ok {
-		if userCH, ok := userList[ID]; ok {
-			close(userCH)
+		if _, ok := userList[ID]; ok {
+			//close(userCH) //don't close channel twice
 			delete(userList, ID)
 		}
 	}

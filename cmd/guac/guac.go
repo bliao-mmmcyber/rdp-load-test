@@ -53,6 +53,8 @@ func main() {
 	wsServer.OnDisconnect = sessions.Delete
 	wsServer.AppendChannelManagement(chManagement)
 
+	go guac.EncodeRecording()
+
 	mux := http.NewServeMux()
 	mux.Handle("/tunnel", servlet)
 	mux.Handle("/tunnel/", servlet)
@@ -173,7 +175,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	delete(config.Parameters, "clientIp")
 	delete(config.Parameters, "role_ids")
 
-	// TODO: AC-507
 	appauthz, err := request.Cookie("appauthz")
 	if err == nil {
 		config.Parameters["gateway-password"] = appauthz.Value
@@ -196,10 +197,13 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	if !strings.Contains(permissions, "paste") {
 		config.Parameters["disable-paste"] = "true"
 	}
-	config.Parameters["recording-path"] = "/tmp"
+
+	//session recording
+	streamId := uuid.NewV4()
+	config.Parameters["recording-path"] = "/efs/rdp"
 	config.Parameters["create-recording-path"] = "true"
 	config.Parameters["recording-include-keys"] = "true"
-	config.Parameters["recording-name"] = fmt.Sprintf("%s-%s-%s", tenantId, userId, uuid.NewV4().String())
+	config.Parameters["recording-name"] = streamId.String()
 
 	logging.Log(logging.Action{
 		AppTag:    "guac.connect",
@@ -212,6 +216,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	alertRulesString := query.Get("alertRules")
 	sessionDataKey := appId + "/" + userId
 
+	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 	sessionAlertRuleData := &guac.SessionCommonData{}
 	sessionAlertRuleData.TenantID = tenantId
 	sessionAlertRuleData.AppID = appId
@@ -219,7 +224,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	sessionAlertRuleData.RoleIDs = strings.Split(roleIds, ",")
 	sessionAlertRuleData.IDToken = appauthz.Value
 	sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
-	sessionAlertRuleData.ClientIP = strings.Split(query.Get("clientIp"), ":")[0]
+	sessionAlertRuleData.ClientIP = clientIp
 	sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
 	sessionAlertRuleData.AppName = appName
 	sessionAlertRuleData.RuleIDs = make(map[string][]string)
@@ -285,7 +290,8 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		return nil, err
 	}
 	logrus.Debug("Socket configured")
-	return guac.NewSimpleTunnel(stream), nil
+	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, streamId.String())
+	return guac.NewSimpleTunnel(stream, streamId, loggingInfo), nil
 }
 
 func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
