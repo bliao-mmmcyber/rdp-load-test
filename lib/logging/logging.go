@@ -34,20 +34,22 @@ type Action struct {
 }
 
 type LoggingInfo struct {
-	TenantId string
-	Email    string
-	AppName  string
-	ClientIp string
-	S3Key    string
+	TenantId        string
+	Email           string
+	AppName         string
+	ClientIp        string
+	S3Key           string
+	EnableRecording bool
 }
 
-func NewLoggingInfo(tenantId, email, appName, clientIp, s3key string) LoggingInfo {
+func NewLoggingInfo(tenantId, email, appName, clientIp, s3key string, enableRecording bool) LoggingInfo {
 	return LoggingInfo{
-		TenantId: tenantId,
-		Email:    email,
-		AppName:  appName,
-		ClientIp: clientIp,
-		S3Key:    s3key,
+		TenantId:        tenantId,
+		Email:           email,
+		AppName:         appName,
+		ClientIp:        clientIp,
+		S3Key:           s3key,
+		EnableRecording: enableRecording,
 	}
 }
 

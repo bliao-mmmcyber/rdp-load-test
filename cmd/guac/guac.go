@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	uuid "github.com/satori/go.uuid"
@@ -198,12 +199,16 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		config.Parameters["disable-paste"] = "true"
 	}
 
+	app := dynamodbcli.GetResourceById(appId)
+
 	//session recording
 	streamId := uuid.NewV4()
-	config.Parameters["recording-path"] = "/efs/rdp"
-	config.Parameters["create-recording-path"] = "true"
-	config.Parameters["recording-include-keys"] = "true"
-	config.Parameters["recording-name"] = streamId.String()
+	if app.EnableRecording {
+		config.Parameters["recording-path"] = "/efs/rdp"
+		config.Parameters["create-recording-path"] = "true"
+		config.Parameters["recording-include-keys"] = "true"
+		config.Parameters["recording-name"] = streamId.String()
+	}
 
 	logging.Log(logging.Action{
 		AppTag:    "guac.connect",
@@ -290,7 +295,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		return nil, err
 	}
 	logrus.Debug("Socket configured")
-	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, streamId.String())
+	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, streamId.String(), app.EnableRecording)
 	return guac.NewSimpleTunnel(stream, streamId, loggingInfo), nil
 }
 

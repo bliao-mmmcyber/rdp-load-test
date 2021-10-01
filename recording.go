@@ -58,6 +58,10 @@ func EncodeRecording() {
 }
 
 func Encode(loggingInfo logging.LoggingInfo) {
+	if loggingInfo.EnableRecording == false {
+		return
+	}
+
 	count := 0
 	for {
 		count++
