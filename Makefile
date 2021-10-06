@@ -6,7 +6,7 @@ endif
 
 DOCKEREPO=980993447824.dkr.ecr.us-east-1.amazonaws.com
 BUILD_BASE=$(DOCKEREPO)/appaegis/golang-builder-base-1.14
-GUACD=$(DOCKEREPO)/appaegis/guacd:AC-1413
+GUACD=$(DOCKEREPO)/appaegis/guacd:latest
 
 default:
 	@echo only use this makefile to build and push docker image
@@ -33,6 +33,8 @@ jenkins-docker:
 	aws ecr get-login-password --region us-east-1| docker login --username AWS --password-stdin 980993447824.dkr.ecr.us-east-1.amazonaws.com
 	docker pull     '$(BUILD_BASE)'
 	docker tag      '$(BUILD_BASE)' build-base
+	docker pull     '$(GUACD)'
+	docker tag      '$(GUACD)' guacd
 	docker build --network=host -t '$(DOCKERTAG)' -f Dockerfile --force-rm .
 	docker push '$(DOCKERTAG)'
 
