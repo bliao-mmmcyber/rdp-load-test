@@ -9,7 +9,7 @@ properties(
         notifyFailure: true,
         notifyBackToNormal: true,
         notifyRepeatedFailure: true,
-        url: 'https://outlook.office.com/webhook/0899a847-7845-4e6b-ab58-8523e4ad4052@6afda026-de71-4468-92ef-11f4bcc200bf/JenkinsCI/eaf5860dc8754b7890b0c116f7e9b6df/fb3124f9-a19d-4220-afdb-d3b2bccca5df'
+        url: 'https://appaccacom.webhook.office.com/webhookb2/0899a847-7845-4e6b-ab58-8523e4ad4052@6afda026-de71-4468-92ef-11f4bcc200bf/JenkinsCI/c801105fc3074b8096ca4cbb39822dd3/d5d3f3be-8856-4e63-8678-e2ab8281a59d'
         ]]),
     pipelineTriggers([githubPush()])
   ]
