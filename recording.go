@@ -84,14 +84,20 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		}
 	}
 
-	f1, err := os.OpenFile(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.S3Key), os.O_RDONLY, 0744)
+	//ffmpeg -i c57fc449-c352-4efb-8501-b5203eaaafdb.m4v -vcodec libx264 -acodec aac output2.mp4
+	command := fmt.Sprintf("ffmpeg -i /efs/rdp/%s.m4v -vcodec libx264 -acodec aac /efs/rdp/%s.mp4", loggingInfo.S3Key, loggingInfo.S3Key)
+	strs := strings.Split(command, " ")
+	output, _ := exec.Command(strs[0], strs[1:]...).CombinedOutput()
+	logrus.Infof("ffmpeg output %s", output)
+
+	f1, err := os.OpenFile(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.S3Key), os.O_RDONLY, 0744)
 	if err != nil {
-		logrus.Errorf("cannot open file %s.m4v", loggingInfo.S3Key)
+		logrus.Errorf("cannot open file %s.mp4", loggingInfo.S3Key)
 		return
 	}
 	result, e := S3Uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(BUCKET_NAME),
-		Key:    aws.String(fmt.Sprintf("%s/%s.m4v", loggingInfo.TenantId, loggingInfo.S3Key)),
+		Key:    aws.String(fmt.Sprintf("%s/%s.mp4", loggingInfo.TenantId, loggingInfo.S3Key)),
 		Body:   f1,
 	})
 	if e != nil {
@@ -101,6 +107,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 	}
 
 	logging.LogRecording(loggingInfo)
+	os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.S3Key))
 	os.Remove(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.S3Key))
 	os.Remove(fmt.Sprintf("/efs/rdp/%s", loggingInfo.S3Key))
 

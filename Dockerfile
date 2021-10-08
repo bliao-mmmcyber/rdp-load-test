@@ -17,6 +17,9 @@ USER root
 ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-muslc-amd64 /bin/tini
 RUN chmod +x /bin/tini
 
+RUN apt update
+RUN apt install -y ffmpeg
+
 COPY --from=build-env /go/src/app/guac /home/appaegis/bin/guac
 ADD assets /home/appaegis/guac-assets
 
