@@ -10,6 +10,7 @@ var (
 	// PortalAPIHost Portal API Host
 	PortalAPIHost     string
 	DLPClientEndPoint string
+	Region            string
 )
 
 // Init manaully fetch runtime environment variables
@@ -23,4 +24,7 @@ func Init() {
 
 	DLPClientEndPointRes, _ := etcd.Get("/dplocal/dp_setting/DLP_CLIENT_HOST")
 	DLPClientEndPoint = string(DLPClientEndPointRes.Kvs[0].Value)
+
+	RegionRes, _ := etcd.Get("/dplocal/dp_setting/CE_COG_REGION")
+	Region = string(RegionRes.Kvs[0].Value)
 }

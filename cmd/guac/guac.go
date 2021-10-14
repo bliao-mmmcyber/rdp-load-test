@@ -28,6 +28,7 @@ var (
 
 func main() {
 	env.Init()
+	guac.Init()
 	geoip.Init()
 	logging.Init()
 	defer logging.Close()

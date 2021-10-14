@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/lib/env"
 	"github.com/wwt/guac/lib/logging"
 	"os"
 	"os/exec"
@@ -20,13 +21,12 @@ var BUCKET_NAME string
 
 var recordingCh = make(chan logging.LoggingInfo, 1024)
 
-func init() {
-	REGION := os.Getenv("CE_COG_REGION")
+func Init() {
 	DEPLOY_ENV := os.Getenv("DEPLOY_ENV")
-	logrus.Infof("init with env %s, region %s", DEPLOY_ENV, REGION)
+	logrus.Infof("init with env %s, region %s", DEPLOY_ENV, env.Region)
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(REGION)},
+		Region: aws.String(env.Region)},
 	)
 	if err != nil {
 		logrus.Errorf("error create aws session %v", err)
