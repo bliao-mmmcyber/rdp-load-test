@@ -40,6 +40,8 @@ type LoggingInfo struct {
 	ClientIp        string
 	S3Key           string
 	EnableRecording bool
+
+	StartTime time.Time
 }
 
 func NewLoggingInfo(tenantId, email, appName, clientIp, s3key string, enableRecording bool) LoggingInfo {
@@ -50,6 +52,7 @@ func NewLoggingInfo(tenantId, email, appName, clientIp, s3key string, enableReco
 		ClientIp:        clientIp,
 		S3Key:           s3key,
 		EnableRecording: enableRecording,
+		StartTime:       time.Now(),
 	}
 }
 
@@ -71,7 +74,7 @@ func NewSessionRecordingLogger() (*zap.Logger, error) {
 	cfg.OutputPaths = []string{
 		"/var/log/appaegis/guac_recordings.log",
 	}
-	cfg.EncoderConfig.TimeKey = "ts"
+	cfg.EncoderConfig.TimeKey = "timestamp"
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	return cfg.Build()
 }
@@ -79,6 +82,7 @@ func NewSessionRecordingLogger() (*zap.Logger, error) {
 func LogRecording(loggingInfo LoggingInfo) {
 	recordingLogger.Info(
 		"rdp-session",
+		zap.Time("ts", loggingInfo.StartTime),
 		zap.String("tenant", loggingInfo.TenantId),
 		zap.String("username", loggingInfo.Email),
 		zap.String("app_name", loggingInfo.AppName),

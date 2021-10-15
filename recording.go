@@ -90,23 +90,28 @@ func Encode(loggingInfo logging.LoggingInfo) {
 	output, _ := exec.Command(strs[0], strs[1:]...).CombinedOutput()
 	logrus.Infof("ffmpeg output %s", output)
 
-	f1, err := os.OpenFile(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.S3Key), os.O_RDONLY, 0744)
-	if err != nil {
-		logrus.Errorf("cannot open file %s.mp4", loggingInfo.S3Key)
-		return
-	}
-	result, e := S3Uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(BUCKET_NAME),
-		Key:    aws.String(fmt.Sprintf("%s/%s.mp4", loggingInfo.TenantId, loggingInfo.S3Key)),
-		Body:   f1,
-	})
-	if e != nil {
-		logrus.Errorf("uplodate script file error %v", e)
-	} else {
-		logrus.Infof("upload result %v", result)
-	}
+	// RDP auth error still have m4v file
+	// we check valid recording by ffmpeg result
+	if !strings.Contains(string(output), "video:0kB") {
 
-	logging.LogRecording(loggingInfo)
+		f1, err := os.OpenFile(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.S3Key), os.O_RDONLY, 0744)
+		if err != nil {
+			logrus.Errorf("cannot open file %s.mp4", loggingInfo.S3Key)
+			return
+		}
+		result, e := S3Uploader.Upload(&s3manager.UploadInput{
+			Bucket: aws.String(BUCKET_NAME),
+			Key:    aws.String(fmt.Sprintf("%s/%s.mp4", loggingInfo.TenantId, loggingInfo.S3Key)),
+			Body:   f1,
+		})
+		if e != nil {
+			logrus.Errorf("uplodate script file error %v", e)
+		} else {
+			logrus.Infof("upload result %v", result)
+		}
+
+		logging.LogRecording(loggingInfo)
+	}
 	os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.S3Key))
 	os.Remove(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.S3Key))
 	os.Remove(fmt.Sprintf("/efs/rdp/%s", loggingInfo.S3Key))
