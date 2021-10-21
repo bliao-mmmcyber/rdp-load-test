@@ -34,14 +34,13 @@ type Action struct {
 }
 
 type LoggingInfo struct {
-	TenantId        string
-	Email           string
-	AppName         string
-	ClientIp        string
-	S3Key           string
-	EnableRecording bool
-
-	StartTime time.Time
+	TenantId        string    `json:"tenantId"`
+	Email           string    `json:"email"`
+	AppName         string    `json:"appName"`
+	ClientIp        string    `json:"clientIp"`
+	S3Key           string    `json:"s3key"`
+	EnableRecording bool      `json:"enableRecording"`
+	StartTime       time.Time `json:"startTime"`
 }
 
 func NewLoggingInfo(tenantId, email, appName, clientIp, s3key string, enableRecording bool) LoggingInfo {

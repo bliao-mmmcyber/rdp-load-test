@@ -9,16 +9,10 @@ RUN go mod tidy
 RUN GIT_COMMIT=$(git rev-list -1 HEAD) && env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.commitID=$GIT_COMMIT" -o guac ./cmd/guac/
 
 #---------
-#FROM alpine:latest
-FROM guacd
-
-USER root
+FROM alpine:latest
 
 ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-muslc-amd64 /bin/tini
 RUN chmod +x /bin/tini
-
-RUN apt update
-RUN apt install -y ffmpeg
 
 COPY --from=build-env /go/src/app/guac /home/appaegis/bin/guac
 ADD assets /home/appaegis/guac-assets

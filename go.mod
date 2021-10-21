@@ -15,6 +15,7 @@ require (
 	github.com/appaegis/golang-common v0.0.0-20210118093202-088b8b8751c7
 	github.com/aws/aws-sdk-go v1.37.33
 	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/go-redis/redis/v8 v8.11.4
 	github.com/gorilla/websocket v1.4.2
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/oschwald/geoip2-golang v1.5.0

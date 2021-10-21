@@ -19,9 +19,9 @@ var S3Client *s3.S3
 var S3Uploader *s3manager.Uploader
 var BUCKET_NAME string
 
-var recordingCh = make(chan logging.LoggingInfo, 1024)
+//var recordingCh = make(chan logging.LoggingInfo, 1024)
 
-func Init() {
+func InitS3() {
 	DEPLOY_ENV := os.Getenv("DEPLOY_ENV")
 	logrus.Infof("init with env %s, region %s", DEPLOY_ENV, env.Region)
 
@@ -46,14 +46,31 @@ func Init() {
 }
 
 func AddEncodeRecoding(loggingInfo logging.LoggingInfo) {
-	recordingCh <- loggingInfo
+	logrus.Infof("add encoding %s", loggingInfo.S3Key)
+	PushToQueue(loggingInfo)
+	//recordingCh <- loggingInfo
 }
 
-func EncodeRecording() {
+func EncodeRecording(index int) {
 
-	for recording := range recordingCh {
-		logrus.Infof("recording %s", recording)
-		go Encode(recording)
+	//for recording := range recordingCh {
+	//	logrus.Infof("recording %s", recording)
+	//	go Encode(recording)
+	//}
+	for {
+		info := PeekFromQueue(index)
+		if info != nil {
+			logrus.Infof("handle %v form queue %d", info, index)
+			if _, e := os.Stat(fmt.Sprintf("/efs/rdp/%s", info.S3Key)); e != nil {
+				logrus.Infof("file %s not found, skip", info.S3Key)
+				PopFromQueue(index)
+			} else {
+				Encode(*info)
+				PopFromQueue(index)
+			}
+		} else {
+			time.Sleep(5 * time.Second)
+		}
 	}
 }
 
@@ -66,6 +83,11 @@ func Encode(loggingInfo logging.LoggingInfo) {
 	for {
 		count++
 		time.Sleep(5 * time.Second)
+
+		//if guac process is stopped in the middle of transcoding
+		//we should delete the old temp file and do it again
+		os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.S3Key))
+		os.Remove(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.S3Key))
 
 		output, err := exec.Command("guacenc", fmt.Sprintf("/efs/rdp/%s", loggingInfo.S3Key)).CombinedOutput()
 		logrus.Infof("encode result %s, err %v", output, err)
@@ -105,7 +127,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 			Body:   f1,
 		})
 		if e != nil {
-			logrus.Errorf("uplodate script file error %v", e)
+			logrus.Errorf("upload recording file error %v", e)
 		} else {
 			logrus.Infof("upload result %v", result)
 		}

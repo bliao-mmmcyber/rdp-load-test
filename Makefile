@@ -18,14 +18,25 @@ build: DOCKERTAG=appaegis/guac:$(VERSION)
 build:
 	docker pull     '$(BUILD_BASE)'
 	docker tag      '$(BUILD_BASE)' build-base
+	docker build -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile --force-rm .
+	docker push     '$(DOCKEREPO)'/'$(DOCKERTAG)'
+
+build-transcode: DOCKERTAG=appaegis/rdp-transcode:$(VERSION)
+build-transcode:
+	docker pull     '$(BUILD_BASE)'
+	docker tag      '$(BUILD_BASE)' build-base
 	docker pull     '$(GUACD)'
 	docker tag      '$(GUACD)' guacd
-	docker build -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile --force-rm .
+	docker build -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile_transcode --force-rm .
 	docker push     '$(DOCKEREPO)'/'$(DOCKERTAG)'
 
 build_untag:
 
 docker: build_tag build build_untag
+
+docker-transcode: build_tag build-transcode
+
+docker-transcoding: build_tag build build_untag
 
 jenkins-docker: DOCKERTAG='$(DOCKEREPO)'/appaegis/guac:$(TAG)
 jenkins-docker: LATESTTAG='$(DOCKEREPO)'/appaegis/guac:latest

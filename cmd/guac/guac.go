@@ -28,7 +28,6 @@ var (
 
 func main() {
 	env.Init()
-	guac.Init()
 	geoip.Init()
 	logging.Init()
 	defer logging.Close()
@@ -54,8 +53,6 @@ func main() {
 	wsServer.OnConnect = sessions.Add
 	wsServer.OnDisconnect = sessions.Delete
 	wsServer.AppendChannelManagement(chManagement)
-
-	go guac.EncodeRecording()
 
 	mux := http.NewServeMux()
 	mux.Handle("/tunnel", servlet)
