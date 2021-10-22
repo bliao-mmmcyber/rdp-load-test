@@ -36,7 +36,5 @@ docker: build_tag build build_untag
 
 docker-transcode: build_tag build-transcode
 
-docker-transcoding: build_tag build build_untag
-
 test:
 	@go test ./... | grep -v '^?'

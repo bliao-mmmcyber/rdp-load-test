@@ -47,7 +47,7 @@ pipeline {
                 echo "Build guac"
                 sh """
                     make VERSION=$IMAGE_TAG docker
-                    make VERSION=$IMAGE_TAG docker-transcoding
+                    make VERSION=$IMAGE_TAG docker-transcode
                 """
                 script {
                     if (env.BRANCH_NAME == 'master') {
