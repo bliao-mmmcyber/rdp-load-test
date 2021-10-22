@@ -21,14 +21,14 @@ build:
 	docker build --network=host -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile --force-rm .
 	docker push     '$(DOCKEREPO)'/'$(DOCKERTAG)'
 
-build-transcode: DOCKERTAG=appaegis/rdp-transcode:$(VERSION)
+build-transcode: TRANSCODETAG=appaegis/rdp-transcode:$(VERSION)
 build-transcode:
 	docker pull     '$(BUILD_BASE)'
 	docker tag      '$(BUILD_BASE)' build-base
 	docker pull     '$(GUACD)'
 	docker tag      '$(GUACD)' guacd
-	docker build --network=host -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile_transcode --force-rm .
-	docker push     '$(DOCKEREPO)'/'$(DOCKERTAG)'
+	docker build --network=host -t '$(DOCKEREPO)'/'$(TRANSCODETAG)' -f Dockerfile_transcode --force-rm .
+	docker push     '$(DOCKEREPO)'/'$(TRANSCODETAG)'
 
 build_untag:
 
