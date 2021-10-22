@@ -18,7 +18,7 @@ build: DOCKERTAG=appaegis/guac:$(VERSION)
 build:
 	docker pull     '$(BUILD_BASE)'
 	docker tag      '$(BUILD_BASE)' build-base
-	docker build --network-host -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile --force-rm .
+	docker build --network=host -t '$(DOCKEREPO)'/'$(DOCKERTAG)' -f Dockerfile --force-rm .
 	docker push     '$(DOCKEREPO)'/'$(DOCKERTAG)'
 
 build-transcode: DOCKERTAG=appaegis/rdp-transcode:$(VERSION)
