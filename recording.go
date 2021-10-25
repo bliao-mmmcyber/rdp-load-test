@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/env"
 	"github.com/wwt/guac/lib/logging"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -121,10 +122,12 @@ func Encode(loggingInfo logging.LoggingInfo) {
 			logrus.Errorf("cannot open file %s.mp4", loggingInfo.S3Key)
 			return
 		}
+		tag := url.QueryEscape(fmt.Sprintf("sku=%s", loggingInfo.Sku))
 		result, e := S3Uploader.Upload(&s3manager.UploadInput{
-			Bucket: aws.String(BUCKET_NAME),
-			Key:    aws.String(fmt.Sprintf("%s/%s.mp4", loggingInfo.TenantId, loggingInfo.S3Key)),
-			Body:   f1,
+			Bucket:  aws.String(BUCKET_NAME),
+			Key:     aws.String(fmt.Sprintf("%s/%s.mp4", loggingInfo.TenantId, loggingInfo.S3Key)),
+			Body:    f1,
+			Tagging: aws.String(tag),
 		})
 		if e != nil {
 			logrus.Errorf("upload recording file error %v", e)

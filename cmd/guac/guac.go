@@ -293,7 +293,9 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		return nil, err
 	}
 	logrus.Debug("Socket configured")
-	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, streamId.String(), app.EnableRecording)
+
+	sku := dynamodbcli.GetTenantById(tenantId).TenantType
+	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, streamId.String(), sku, app.EnableRecording)
 	return guac.NewSimpleTunnel(stream, streamId, loggingInfo), nil
 }
 

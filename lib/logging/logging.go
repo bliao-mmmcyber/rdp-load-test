@@ -41,9 +41,10 @@ type LoggingInfo struct {
 	S3Key           string    `json:"s3key"`
 	EnableRecording bool      `json:"enableRecording"`
 	StartTime       time.Time `json:"startTime"`
+	Sku             string    `json:"sku"`
 }
 
-func NewLoggingInfo(tenantId, email, appName, clientIp, s3key string, enableRecording bool) LoggingInfo {
+func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enableRecording bool) LoggingInfo {
 	return LoggingInfo{
 		TenantId:        tenantId,
 		Email:           email,
@@ -52,6 +53,7 @@ func NewLoggingInfo(tenantId, email, appName, clientIp, s3key string, enableReco
 		S3Key:           s3key,
 		EnableRecording: enableRecording,
 		StartTime:       time.Now(),
+		Sku:             sku,
 	}
 }
 
