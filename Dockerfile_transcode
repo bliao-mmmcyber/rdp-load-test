@@ -1,5 +1,5 @@
 FROM build-base as base
-FROM golang:1.14 as build-env
+FROM golang:1.15 as build-env
 
 WORKDIR /go/src/app
 COPY --from=base /go/src/golang-common /go/src/golang-common
