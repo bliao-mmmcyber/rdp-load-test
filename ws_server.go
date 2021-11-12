@@ -117,9 +117,9 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logrus.Infof("session data delete: %s", sessionDataKey)
 		SessionDataStore.Delete(sessionDataKey)
 	}()
-	if data, ok := SessionDataStore.Get(sessionDataKey).(SessionCommonData); ok {
-		logrus.Infof("session data alert rules: %v", data)
-	}
+	//if data, ok := SessionDataStore.Get(sessionDataKey).(SessionCommonData); ok {
+	//	logrus.Infof("session data alert rules: %v", data)
+	//}
 
 	id := tunnel.ConnectionID()
 
@@ -293,7 +293,7 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		logrus.Infof("session data not found: %s", sessionDataKey)
 		return
 	}
-	logrus.Infof("session data %v", ses)
+	//logrus.Infof("session data %v", ses)
 
 	result := J{}
 	op := instruction.Args[0]
