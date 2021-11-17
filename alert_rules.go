@@ -155,7 +155,7 @@ func CheckAlertRule(ses *SessionCommonData, action string, actionCount int) (can
 
 func fetchAlertRuleData(authToken string, appID string, userName string, alertRuleData []*AlertRuleData, sessionStartTime int64) *alertRuleResult {
 	log.Info("fetchAlertRuleData start")
-	url := env.PortalAPIHost + "/rest/v1/admin/app_alert/fetchAlertRuleData"
+	url := env.PortalAPIHost + "/rest/v1/self/app_alert/fetchAlertRuleData"
 
 	body := bytes.Buffer{}
 	payload := alertRuleDataRequest{
