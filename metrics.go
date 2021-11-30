@@ -25,7 +25,7 @@ func (s *GuacServerWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type ResponseWriterWrapper struct {
-	w http.ResponseWriter
+	w      http.ResponseWriter
 	status int
 }
 
@@ -43,27 +43,22 @@ func (writer *ResponseWriterWrapper) Header() http.Header {
 }
 
 var (
-	rdpCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "rdp_count",
+	rdpCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "active_rdp_count",
 		Help: "The total number of rdp connections",
-	})
+	}, []string{"tenantId"})
 
-	requests = prometheus.NewCounterVec(
+	requests = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests",
 		},
 		[]string{"code", "method", "url"},
 	)
 
-	requestsDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	requestsDur = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "http_requests_dur",
 	}, []string{"url", "method"})
 )
-
-func init() {
-	prometheus.MustRegister(requests)
-	prometheus.MustRegister(requestsDur)
-}
 
 func WithMetrics(fn func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -79,12 +74,12 @@ func WithMetrics(fn func(w http.ResponseWriter, r *http.Request)) func(w http.Re
 
 }
 
-func IncRdpCount() {
-	rdpCount.Inc()
+func IncRdpCount(tenantId string) {
+	rdpCount.With(prometheus.Labels{"tenantId": tenantId}).Inc()
 }
 
-func DecRdpCount() {
-	rdpCount.Dec()
+func DecRdpCount(tenantId string) {
+	rdpCount.With(prometheus.Labels{"tenantId": tenantId}).Dec()
 }
 
 func RecordHttpRequest(url, method string, status int) {

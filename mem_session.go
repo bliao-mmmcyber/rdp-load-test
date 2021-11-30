@@ -30,7 +30,6 @@ func (s *MemorySessionStore) Get(id string) int {
 func (s *MemorySessionStore) Add(id string, req *http.Request) {
 	s.Lock()
 	defer s.Unlock()
-	defer IncRdpCount()
 	n, ok := s.ConnIds[id]
 	if !ok {
 		s.ConnIds[id] = 1
@@ -45,7 +44,6 @@ func (s *MemorySessionStore) Add(id string, req *http.Request) {
 func (s *MemorySessionStore) Delete(id string, req *http.Request, tunnel Tunnel) {
 	s.Lock()
 	defer s.Unlock()
-	defer DecRdpCount()
 
 	n, ok := s.ConnIds[id]
 	if !ok {

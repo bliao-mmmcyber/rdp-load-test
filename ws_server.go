@@ -157,7 +157,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
 	}
 
-	go wsToGuacd(ws, writer, sessionDataKey)
+	go wsToGuacd(ws, writer, sessionDataKey, tunnel.GetLoggingInfo().TenantId)
 	guacdToWs(ws, reader)
 	AddEncodeRecoding(tunnel.GetLoggingInfo())
 
@@ -170,7 +170,10 @@ type MessageReader interface {
 	ReadMessage() (int, []byte, error)
 }
 
-func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string) {
+func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, tenantId string) {
+	IncRdpCount(tenantId)
+	defer DecRdpCount(tenantId)
+
 	for {
 		_, data, err := ws.ReadMessage()
 		if err != nil {
