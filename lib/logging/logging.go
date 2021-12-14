@@ -2,6 +2,8 @@ package logging
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/wwt/guac/lib/env"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"log"
@@ -44,6 +46,10 @@ type LoggingInfo struct {
 	Sku             string    `json:"sku"`
 }
 
+func (l *LoggingInfo) GetRecordingFileName() string {
+	return fmt.Sprintf("%s-%s", l.Email, l.S3Key)
+}
+
 func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enableRecording bool) LoggingInfo {
 	return LoggingInfo{
 		TenantId:        tenantId,
@@ -80,14 +86,16 @@ func NewSessionRecordingLogger() (*zap.Logger, error) {
 	return cfg.Build()
 }
 
-func LogRecording(loggingInfo LoggingInfo) {
+func LogRecording(loggingInfo LoggingInfo, key string, bucket string) {
 	recordingLogger.Info(
 		"rdp-session",
 		zap.Time("ts", loggingInfo.StartTime),
 		zap.String("tenant", loggingInfo.TenantId),
 		zap.String("username", loggingInfo.Email),
 		zap.String("app_name", loggingInfo.AppName),
-		zap.String("s3Key", loggingInfo.S3Key),
+		zap.String("file_key", key),
+		zap.String("bucket", bucket),
+		zap.String("region", env.Region),
 		zap.String("client_ip", loggingInfo.ClientIp))
 }
 

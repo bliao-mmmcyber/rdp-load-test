@@ -2,6 +2,7 @@ package env
 
 import (
 	"github.com/appaegis/golang-common/pkg/etcd"
+	"os"
 )
 
 var (
@@ -10,11 +11,14 @@ var (
 	// PortalAPIHost Portal API Host
 	PortalAPIHost     string
 	DLPClientEndPoint string
+	CogRegion         string
 	Region            string
 )
 
 // Init manaully fetch runtime environment variables
 func Init() {
+	Region = os.Getenv("REGION")
+
 	etcd.NewWithEnv()
 	pmRes, _ := etcd.Get("/dplocal/dp_setting/POLICY_MANAGEMENT_ENDPOINT")
 	PolicyManagementHost = string(pmRes.Kvs[0].Value)
@@ -26,5 +30,5 @@ func Init() {
 	DLPClientEndPoint = string(DLPClientEndPointRes.Kvs[0].Value)
 
 	RegionRes, _ := etcd.Get("/dplocal/dp_setting/CE_COG_REGION")
-	Region = string(RegionRes.Kvs[0].Value)
+	CogRegion = string(RegionRes.Kvs[0].Value)
 }

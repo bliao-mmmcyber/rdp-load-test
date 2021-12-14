@@ -14,7 +14,6 @@ func main() {
 
 	env.Init()
 	logging.Init()
-	guac.InitS3()
 
 	podName := os.Getenv("POD_NAME")
 

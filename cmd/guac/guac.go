@@ -201,11 +201,16 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	//session recording
 	streamId := uuid.NewV4()
+	s3key := time.Now().Format(time.RFC3339)
+	sku := dynamodbcli.GetTenantById(tenantId).TenantType
+	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
+	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, app.EnableRecording)
+
 	if app.EnableRecording {
 		config.Parameters["recording-path"] = "/efs/rdp"
 		config.Parameters["create-recording-path"] = "true"
 		config.Parameters["recording-include-keys"] = "true"
-		config.Parameters["recording-name"] = streamId.String()
+		config.Parameters["recording-name"] = loggingInfo.GetRecordingFileName()
 	}
 
 	logging.Log(logging.Action{
@@ -219,7 +224,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	alertRulesString := query.Get("alertRules")
 	sessionDataKey := appId + "/" + userId
 
-	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 	sessionAlertRuleData := &guac.SessionCommonData{}
 	sessionAlertRuleData.TenantID = tenantId
 	sessionAlertRuleData.AppID = appId
@@ -294,8 +298,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 	logrus.Debug("Socket configured")
 
-	sku := dynamodbcli.GetTenantById(tenantId).TenantType
-	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, streamId.String(), sku, app.EnableRecording)
 	return guac.NewSimpleTunnel(stream, streamId, loggingInfo), nil
 }
 
