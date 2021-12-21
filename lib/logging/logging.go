@@ -86,7 +86,7 @@ func NewSessionRecordingLogger() (*zap.Logger, error) {
 	return cfg.Build()
 }
 
-func LogRecording(loggingInfo LoggingInfo, key string, bucket string) {
+func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId string) {
 	recordingLogger.Info(
 		"rdp-session",
 		zap.Time("ts", loggingInfo.StartTime),
@@ -96,7 +96,9 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket string) {
 		zap.String("file_key", key),
 		zap.String("bucket", bucket),
 		zap.String("region", env.Region),
-		zap.String("client_ip", loggingInfo.ClientIp))
+		zap.String("client_ip", loggingInfo.ClientIp),
+		zap.String("key_id", keyId),
+	)
 }
 
 func Log(action Action) {
