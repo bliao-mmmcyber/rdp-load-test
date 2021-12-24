@@ -2,6 +2,7 @@ package guac
 
 import (
 	"bytes"
+	"github.com/wwt/guac/lib/logging"
 	"io"
 	"strings"
 	"testing"
@@ -84,4 +85,8 @@ func (f *fakeTunnel) GetUUID() string {
 
 func (f *fakeTunnel) Close() error {
 	return nil
+}
+
+func (f *fakeTunnel) GetLoggingInfo() logging.LoggingInfo {
+	return logging.LoggingInfo{}
 }
