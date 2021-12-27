@@ -89,6 +89,8 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		key := fmt.Sprintf("rdp/%s/%s/%s.mp4", loggingInfo.TenantId, loggingInfo.Email, loggingInfo.S3Key)
 		if appaegis {
 			key = fmt.Sprintf("%s/%s/%s.mp4", loggingInfo.TenantId, loggingInfo.Email, loggingInfo.S3Key)
+		} else {
+			tag = ""
 		}
 		s.UploadRdp(key, f1, tag)
 
