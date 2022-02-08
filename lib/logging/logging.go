@@ -3,7 +3,6 @@ package logging
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/wwt/guac/lib/env"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"log"
@@ -86,7 +85,7 @@ func NewSessionRecordingLogger() (*zap.Logger, error) {
 	return cfg.Build()
 }
 
-func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageType string) {
+func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageType, region string) {
 	recordingLogger.Info(
 		"rdp-session",
 		zap.Time("ts", loggingInfo.StartTime),
@@ -95,7 +94,7 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageTyp
 		zap.String("app_name", loggingInfo.AppName),
 		zap.String("file_key", key),
 		zap.String("bucket", bucket),
-		zap.String("region", env.Region),
+		zap.String("region", region),
 		zap.String("client_ip", loggingInfo.ClientIp),
 		zap.String("key_id", keyId),
 		zap.String("storage_type", storageType),

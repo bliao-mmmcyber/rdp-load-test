@@ -94,7 +94,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		}
 		s.UploadRdp(key, f1, tag)
 
-		logging.LogRecording(loggingInfo, key, s.GetRdpBucket(), s.GetKeyId(), s.GetStorageType())
+		logging.LogRecording(loggingInfo, key, s.GetRdpBucket(), s.GetKeyId(), s.GetStorageType(), s.GetRegion())
 	}
 	os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName()))
 	os.Remove(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.GetRecordingFileName()))
