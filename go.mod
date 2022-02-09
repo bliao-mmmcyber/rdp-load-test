@@ -6,7 +6,6 @@ replace github.com/appaegis/golang-common => ../golang-common
 
 require (
 	github.com/appaegis/golang-common v0.0.0-20210118093202-088b8b8751c7
-	github.com/aws/aws-sdk-go v1.42.2
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/gorilla/websocket v1.4.2
