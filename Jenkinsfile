@@ -28,7 +28,7 @@ pipeline {
             steps{
                 script{
                     switch (env.BRANCH_NAME) {
-                        case 'master':
+                        case 'main':
                             IMAGE_TAG = "${env.BRANCH_NAME}-b${env.BUILD_ID}-${GIT_COMMIT[0..6]}"
                             break
                         default:
@@ -50,7 +50,7 @@ pipeline {
                     make VERSION=$IMAGE_TAG docker-transcode
                 """
                 script {
-                    if (env.BRANCH_NAME == 'master') {
+                    if (env.BRANCH_NAME == 'main') {
                         sh(script: "docker tag 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:${IMAGE_TAG} 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:latest")
                         sh(script: "docker push 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:latest")
                         sh(script: "docker tag 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/rdp-transcode:${IMAGE_TAG} 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/rdp-transcode:latest")
