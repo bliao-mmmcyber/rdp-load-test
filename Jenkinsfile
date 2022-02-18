@@ -1,3 +1,5 @@
+@Library('Utilities')_
+
 properties(
   [
     office365ConnectorWebhooks([[
@@ -21,21 +23,11 @@ pipeline {
     }
     environment {
         //Def
-        IMAGE_TAG = 'none'
+        IMAGE_TAG = "${env.BRANCH_NAME}"
     }
     stages {
         stage('Setup'){
             steps{
-                script{
-                    switch (env.BRANCH_NAME) {
-                        case 'main':
-                            IMAGE_TAG = "${env.BRANCH_NAME}-b${env.BUILD_ID}-${GIT_COMMIT[0..6]}"
-                            break
-                        default:
-                            IMAGE_TAG = "${env.BRANCH_NAME}"
-                            break
-                    }
-                }
                 sh """
                     apt-get update
                     apt-get install build-essential -y
@@ -51,6 +43,11 @@ pipeline {
                 """
                 script {
                     if (env.BRANCH_NAME == 'main') {
+                        tag = tagBranchWithVersion 'guac'
+                        sh(script: "docker tag 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:${IMAGE_TAG} 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:${IMAGE_TAG}-${tag}")
+                        sh(script: "docker tag 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/rdp-transcode:${IMAGE_TAG} 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/rdp-transcode:${IMAGE_TAG}-${tag}")
+                        sh(script: "docker push 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:${IMAGE_TAG}-${tag}")
+                        sh(script: "docker push 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/rdp-transcode:${IMAGE_TAG}-${tag}")
                         sh(script: "docker tag 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:${IMAGE_TAG} 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:latest")
                         sh(script: "docker push 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:latest")
                         sh(script: "docker tag 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/rdp-transcode:${IMAGE_TAG} 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/rdp-transcode:latest")
