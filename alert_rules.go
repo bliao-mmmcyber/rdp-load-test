@@ -3,11 +3,11 @@ package guac
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/appaegis/golang-common/pkg/config"
 	"io/ioutil"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/wwt/guac/lib/env"
 )
 
 // AlertRuleData monitor policy alert rule data and count
@@ -155,7 +155,7 @@ func CheckAlertRule(ses *SessionCommonData, action string, actionCount int) (can
 
 func fetchAlertRuleData(authToken string, appID string, userName string, alertRuleData []*AlertRuleData, sessionStartTime int64) *alertRuleResult {
 	log.Info("fetchAlertRuleData start")
-	url := env.PortalAPIHost + "/rest/v1/self/app_alert/fetchAlertRuleData"
+	url := config.GetPortalApiHost() + "/rest/v1/self/app_alert/fetchAlertRuleData"
 
 	body := bytes.Buffer{}
 	payload := alertRuleDataRequest{
