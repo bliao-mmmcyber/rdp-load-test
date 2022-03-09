@@ -3,13 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac"
-	"github.com/wwt/guac/lib/env"
 	"github.com/wwt/guac/lib/geoip"
 	"github.com/wwt/guac/lib/logging"
 	"io/ioutil"
@@ -27,7 +27,6 @@ var (
 )
 
 func main() {
-	env.Init()
 	geoip.Init()
 	logging.Init()
 	defer logging.Close()
@@ -39,7 +38,7 @@ func main() {
 	os.Chmod("/efs/rdp", os.ModePerm)
 
 	// XXX
-	pmHost := env.PolicyManagementHost
+	pmHost := config.GetPolicyManagementEndPoint()
 
 	servlet := &guac.GuacServerWrapper{Server: guac.NewServer(DemoDoConnect)}
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
@@ -123,7 +122,7 @@ func requestPolicy(appID string, userID string) []string {
 		"userID": []string{userID},
 		"appID":  []string{appID},
 	}
-	resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", env.PolicyManagementHost, requestParam.Encode()))
+	resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", config.GetPolicyManagementEndPoint(), requestParam.Encode()))
 	if _err != nil {
 		logrus.Fatalf("get policy failed, %s", _err.Error())
 		return nil

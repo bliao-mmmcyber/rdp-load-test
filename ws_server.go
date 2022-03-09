@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/appaegis/golang-common/pkg/config"
 	"io"
 	"net/http"
 	"strconv"
@@ -13,7 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac/lib/env"
 	"github.com/wwt/guac/lib/logging"
 
 	"github.com/appaegis/golang-common/pkg/httpclient"
@@ -343,7 +343,7 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		fileName := instruction.Args[2]
 		logrus.Debug("dlp-upload: ", fileName)
 
-		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", env.DLPClientEndPoint), map[string]string{
+		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
 			"Content-Type": "application/json",
 		}, map[string]interface{}{
 			"appID":      ses.AppID,
@@ -370,7 +370,7 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		if len(fileTokens) > 0 {
 			fileName = fileTokens[len(fileTokens)-1]
 		}
-		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", env.DLPClientEndPoint), map[string]string{
+		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
 			"Content-Type": "application/json",
 		}, map[string]interface{}{
 			"appID":      ses.AppID,

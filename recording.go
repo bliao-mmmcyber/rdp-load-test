@@ -2,9 +2,9 @@ package guac
 
 import (
 	"fmt"
+	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/storage"
 	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac/lib/env"
 	"github.com/wwt/guac/lib/logging"
 	"net/url"
 	"os"
@@ -85,7 +85,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 			return
 		}
 		tag := url.QueryEscape(fmt.Sprintf("sku=%s", loggingInfo.Sku))
-		s, appaegis := storage.GetStorageByTenantId(loggingInfo.TenantId, env.Region)
+		s, appaegis := storage.GetStorageByTenantId(loggingInfo.TenantId, config.GetRegion())
 		key := fmt.Sprintf("rdp/%s/%s/%s.mp4", loggingInfo.TenantId, loggingInfo.Email, loggingInfo.S3Key)
 		if appaegis {
 			key = fmt.Sprintf("%s/%s/%s.mp4", loggingInfo.TenantId, loggingInfo.Email, loggingInfo.S3Key)
