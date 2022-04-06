@@ -6,7 +6,7 @@ FROM golang:1.16 as build-env
 
 WORKDIR /go/src/app
 COPY --from=base /go/src/golang-common /go/src/golang-common
-ADD ../ .
+ADD . .
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN  make go.build
