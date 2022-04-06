@@ -1,0 +1,3 @@
+[submodule "mk-common"]
+	path = mk-common
+	url = https://github.com/appaegis/mk-common.git

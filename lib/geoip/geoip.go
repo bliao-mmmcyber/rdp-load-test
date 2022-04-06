@@ -9,6 +9,7 @@ import (
 )
 
 var db *geoip2.Reader
+
 // Init initialize geolite db
 func Init() {
 	dbPath := "/home/appaegis/guac-assets/GeoLite2-Country.mmdb"

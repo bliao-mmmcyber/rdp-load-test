@@ -1,11 +1,12 @@
 package guac
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type GuacServerWrapper struct {
@@ -13,7 +14,6 @@ type GuacServerWrapper struct {
 }
 
 func (s *GuacServerWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	start := time.Now()
 	writer := &ResponseWriterWrapper{w: w}
 	s.Server.ServeHTTP(writer, r)
@@ -71,7 +71,6 @@ func WithMetrics(fn func(w http.ResponseWriter, r *http.Request)) func(w http.Re
 		RecordHttpRequestDur(path, r.Method, elapsed)
 		RecordHttpRequest(path, r.Method, writer.status)
 	}
-
 }
 
 func IncRdpCount(tenantId string) {

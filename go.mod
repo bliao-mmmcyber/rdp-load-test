@@ -13,4 +13,5 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.8.1
 	go.uber.org/zap v1.17.0
+	mvdan.cc/gofumpt v0.3.1
 )

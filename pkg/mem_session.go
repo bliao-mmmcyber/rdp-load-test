@@ -37,7 +37,6 @@ func (s *MemorySessionStore) Add(id string, req *http.Request) {
 	}
 	n++
 	s.ConnIds[id] = n
-	return
 }
 
 // Delete removes a connection by uuid
@@ -54,5 +53,4 @@ func (s *MemorySessionStore) Delete(id string, req *http.Request, tunnel Tunnel)
 		return
 	}
 	s.ConnIds[id]--
-	return
 }

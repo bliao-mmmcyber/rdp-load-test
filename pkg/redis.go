@@ -3,12 +3,13 @@ package guac
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+
 	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/queue"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
-	"os"
-	"strconv"
 )
 
 const queueName = "recording-queue"
@@ -34,7 +35,6 @@ func init() {
 }
 
 func PushToQueue(recording logging.LoggingInfo) {
-
 	if !recording.EnableRecording {
 		return
 	}

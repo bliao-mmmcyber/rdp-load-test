@@ -1,9 +1,10 @@
 package guac
 
 import (
-	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 /*
@@ -62,7 +63,7 @@ type TunnelMap struct {
 	tunnelTimeout time.Duration
 
 	// Map of all tunnels that are using HTTP, indexed by tunnel UUID.
-	tunnelMap     map[string]*LastAccessedTunnel
+	tunnelMap map[string]*LastAccessedTunnel
 }
 
 // NewTunnelMap creates a new TunnelMap and starts the scheduled job with the default timeout.
@@ -116,7 +117,6 @@ func (m *TunnelMap) tunnelTimeoutTaskRun() {
 		}
 	}
 	m.Unlock()
-	return
 }
 
 // Get returns the Tunnel having the given UUID, wrapped within a LastAccessedTunnel.

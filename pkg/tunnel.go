@@ -2,9 +2,10 @@ package guac
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/satori/go.uuid"
 	"github.com/wwt/guac/lib/logging"
-	"io"
 )
 
 // The Guacamole protocol instruction Opcode reserved for arbitrary

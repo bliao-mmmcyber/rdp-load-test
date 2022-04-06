@@ -3,9 +3,10 @@ package guac
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/appaegis/golang-common/pkg/config"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/appaegis/golang-common/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 )

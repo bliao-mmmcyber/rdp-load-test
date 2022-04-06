@@ -2,15 +2,16 @@ package guac
 
 import (
 	"fmt"
-	"github.com/appaegis/golang-common/pkg/config"
-	"github.com/appaegis/golang-common/pkg/storage"
-	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac/lib/logging"
 	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/appaegis/golang-common/pkg/config"
+	"github.com/appaegis/golang-common/pkg/storage"
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/lib/logging"
 )
 
 func AddEncodeRecoding(loggingInfo logging.LoggingInfo) {
@@ -19,7 +20,6 @@ func AddEncodeRecoding(loggingInfo logging.LoggingInfo) {
 }
 
 func EncodeRecording(index int) {
-
 	for {
 		info := PeekFromQueue(index)
 		if info != nil {
@@ -38,7 +38,7 @@ func EncodeRecording(index int) {
 }
 
 func Encode(loggingInfo logging.LoggingInfo) {
-	if loggingInfo.EnableRecording == false {
+	if !loggingInfo.EnableRecording {
 		return
 	}
 
@@ -47,8 +47,8 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		count++
 		time.Sleep(5 * time.Second)
 
-		//if guac process is stopped in the middle of transcoding
-		//we should delete the old temp file and do it again
+		// if guac process is stopped in the middle of transcoding
+		// we should delete the old temp file and do it again
 		os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName()))
 		os.Remove(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.GetRecordingFileName()))
 
@@ -69,7 +69,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		}
 	}
 
-	//ffmpeg -i c57fc449-c352-4efb-8501-b5203eaaafdb.m4v -vcodec libx264 -acodec aac output2.mp4
+	// ffmpeg -i c57fc449-c352-4efb-8501-b5203eaaafdb.m4v -vcodec libx264 -acodec aac output2.mp4
 	command := fmt.Sprintf("ffmpeg -i /efs/rdp/%s.m4v -vcodec libx264 -acodec aac /efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName(), loggingInfo.GetRecordingFileName())
 	strs := strings.Split(command, " ")
 	output, _ := exec.Command(strs[0], strs[1:]...).CombinedOutput()
@@ -79,7 +79,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 	// we check valid recording by ffmpeg result
 	if !strings.Contains(string(output), "video:0kB") {
 
-		f1, err := os.OpenFile(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName()), os.O_RDONLY, 0744)
+		f1, err := os.OpenFile(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName()), os.O_RDONLY, 0o744)
 		if err != nil {
 			logrus.Errorf("cannot open file %s.mp4", loggingInfo.GetRecordingFileName())
 			return
@@ -92,12 +92,11 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		} else {
 			tag = ""
 		}
-		s.UploadRdp(key, f1, tag)
+		_ = s.UploadRdp(key, f1, tag)
 
 		logging.LogRecording(loggingInfo, key, s.GetRdpBucket(), s.GetKeyId(), s.GetStorageType(), s.GetRegion())
 	}
 	os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName()))
 	os.Remove(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.GetRecordingFileName()))
 	os.Remove(fmt.Sprintf("/efs/rdp/%s", loggingInfo.GetRecordingFileName()))
-
 }
