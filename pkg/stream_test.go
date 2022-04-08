@@ -15,7 +15,6 @@ func TestInstructionReader_ReadSome(t *testing.T) {
 	stream := NewStream(conn, 1*time.Minute)
 
 	ins, err := stream.ReadSome()
-
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}

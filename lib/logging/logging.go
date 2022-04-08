@@ -3,11 +3,12 @@ package logging
 import (
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
 	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/sirupsen/logrus"
 )
@@ -16,10 +17,11 @@ const (
 	LOG_FILE = "/var/log/appaegis/appaegis_guac.log"
 )
 
-var reportFile *os.File
-var systemLogFile *os.File
-var logger *log.Logger
-var recordingLogger *zap.Logger
+var (
+	reportFile      *os.File
+	logger          *log.Logger
+	recordingLogger *zap.Logger
+)
 
 // Action is user action, the log object
 type Action struct {
@@ -64,7 +66,7 @@ func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enabl
 
 // Init manually create report file
 func Init() {
-	reportFile, err := os.OpenFile(LOG_FILE, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
+	reportFile, err := os.OpenFile(LOG_FILE, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o755)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -75,7 +77,7 @@ func Init() {
 
 func NewSessionRecordingLogger() (*zap.Logger, error) {
 	cfg := zap.NewProductionConfig()
-	os.OpenFile("/var/log/appaegis/guac_recordings.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0744)
+	_, _ = os.OpenFile("/var/log/appaegis/guac_recordings.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o744)
 
 	cfg.OutputPaths = []string{
 		"/var/log/appaegis/guac_recordings.log",

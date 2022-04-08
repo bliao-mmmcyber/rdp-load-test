@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/appaegis/golang-common/pkg/config"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/appaegis/golang-common/pkg/config"
 
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
@@ -20,8 +21,6 @@ import (
 )
 
 var appaegisCmdOpcodeIns = []byte("5.AACMD")
-var downloadCmdOpcodeIns = []byte("3.get")
-var uploadCmdOpcodeIns = []byte("3.put")
 
 // WebsocketServer implements a websocket-based connection to guacd.
 type WebsocketServer struct {
@@ -146,12 +145,12 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.channelManagement != nil {
 		ch := make(chan int, 1)
 		channelID := uuid.NewV4()
-		defer s.channelManagement.Remove(appId, userId, channelID.String())
+		defer func() { _ = s.channelManagement.Remove(appId, userId, channelID.String()) }()
 		if userId != "" {
-			s.channelManagement.Add(userId, channelID.String(), ch)
+			_ = s.channelManagement.Add(userId, channelID.String(), ch)
 		}
 		if appId != "" {
-			s.channelManagement.Add(appId, channelID.String(), ch)
+			_ = s.channelManagement.Add(appId, channelID.String(), ch)
 		}
 
 		go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
@@ -257,6 +256,7 @@ func BroadCastToWs(ws MessageWriter, ch chan int, appId string, userId string, r
 		}
 	}
 }
+
 func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolicy func(string, string) []string) {
 	actions := requestPolicy(appId, userId)
 	if actions == nil {
@@ -296,9 +296,9 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		logrus.Infof("session data not found: %s", sessionDataKey)
 		return
 	}
-	//logrus.Infof("session data %v", ses)
+	// logrus.Infof("session data %v", ses)
 
-	result := J{}
+	result := J{} //nolint
 	op := instruction.Args[0]
 	requestID := instruction.Args[1]
 	logrus.Printf("op: %s, requestID: %s", op, requestID)

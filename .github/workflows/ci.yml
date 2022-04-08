@@ -1,0 +1,79 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the dev branch
+  pull_request:
+    branches: [ dev, main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# I really wish these can work, but at 2020/03/18, it is not
+#env:
+#  common-gitaction-location: appaegis-lib/gitactions
+#  local-project:             resource-discovery
+#  running-region:            us-east-1
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  global-var:
+    uses: appaegis/gitaction-lib/.github/workflows/global-export.yaml@main
+    with:
+      repository: ${{ github.repository }}
+  call-coverager-status-trigger:
+    needs: global-var
+    uses: appaegis/gitaction-lib/.github/workflows/coverage-state.yaml@main
+    with:
+      organization: ${{ github.repository_owner }}
+      project:      ${{ needs.global-var.outputs.project }}
+      commit:       ${{ github.event.pull_request.head.sha }}
+      runid:        ${{ github.run_id }}
+      pullreq:      ${{ github.event.pull_request.number }}
+    secrets:
+      username: ${{ secrets.GIT_USER }}
+      token:    ${{ secrets.ORG_TOKEN }}
+
+  codecheckout:
+    needs: [global-var, call-coverager-status-trigger]
+    uses: appaegis/gitaction-lib/.github/workflows/codecheckout.yaml@main
+    with:
+      project:      ${{ needs.global-var.outputs.project }}
+      runid:        ${{ github.run_id }}
+    secrets:
+      username: ${{ secrets.GIT_USER }}
+      token:    ${{ secrets.ORG_TOKEN }}
+      sshkey:   ${{ secrets.WEI_SSH_KEY }}
+
+  # This workflow contains a single job called "build"
+  build:
+    needs: [codecheckout, global-var]
+    # The type of runner that the job will run on
+    uses: appaegis/gitaction-lib/.github/workflows/build-and-test.yaml@main
+    with:
+      project:      ${{ needs.global-var.outputs.project }}
+      runid:        ${{ github.run_id }}
+      region:       ${{ needs.global-var.outputs.region }}
+    secrets:
+      username: ${{ secrets.GIT_USER }}
+      token:    ${{ secrets.ORG_TOKEN }}
+      keyid:    ${{ secrets.AWS_ACCESS_KEY_ID }}
+      key:      ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  call-coverager-check-trigger:
+    needs: [build, global-var]
+    uses: appaegis/gitaction-lib/.github/workflows/coverage-check.yaml@main
+    with:
+      organization: ${{ github.repository_owner }}
+      project:      ${{ needs.global-var.outputs.project }}
+      commit:       ${{ github.event.pull_request.head.sha }}
+      runid:        ${{ github.run_id }}
+      pullreq:      ${{ github.event.pull_request.number }}
+      region:       ${{ needs.global-var.outputs.region }}
+    secrets:
+      username: ${{ secrets.GIT_USER }}
+      token:    ${{ secrets.ORG_TOKEN }}
+      keyid:    ${{ secrets.AWS_ACCESS_KEY_ID }}
+      key:      ${{ secrets.AWS_SECRET_ACCESS_KEY }}

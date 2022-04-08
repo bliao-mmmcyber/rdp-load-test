@@ -162,5 +162,4 @@ func FromGuacamoleStatusCode(code int) (ret Status) {
 	// No such Status found
 	ret = Undefined
 	return
-
 }

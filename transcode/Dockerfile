@@ -1,15 +1,18 @@
-FROM build-base as base
+ARG golang_builder_base
+ARG guacd
+
+FROM $golang_builder_base as base
 FROM golang:1.16 as build-env
 
 WORKDIR /go/src/app
 COPY --from=base /go/src/golang-common /go/src/golang-common
 ADD . .
 
-RUN go mod tidy
-RUN GIT_COMMIT=$(git rev-list -1 HEAD) && env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.commitID=$GIT_COMMIT" -o transcoding ./cmd/transcoding/
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+RUN  make go.build
 
 #---------
-FROM guacd
+FROM $guacd
 
 USER root
 
@@ -19,7 +22,7 @@ RUN chmod +x /bin/tini
 RUN apt update
 RUN apt install -y ffmpeg
 
-COPY --from=build-env /go/src/app/transcoding /home/appaegis/bin/transcoding
+COPY --from=build-env /go/src/app/bin/transcoding /home/appaegis/bin/transcoding
 
 RUN mkdir -p /var/log/appaegis
 WORKDIR /home/appaegis
@@ -31,5 +34,3 @@ LABEL name="guac" \
 
 ENTRYPOINT ["/bin/tini", "--"]
 CMD ["/home/appaegis/bin/transcoding"]
-
-

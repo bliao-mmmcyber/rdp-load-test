@@ -3,15 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/appaegis/golang-common/pkg/config"
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
-	"github.com/gorilla/websocket"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	uuid "github.com/satori/go.uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac"
-	"github.com/wwt/guac/lib/geoip"
-	"github.com/wwt/guac/lib/logging"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -20,11 +11,19 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/appaegis/golang-common/pkg/config"
+	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/lib/geoip"
+	"github.com/wwt/guac/lib/logging"
+	guac "github.com/wwt/guac/pkg"
 )
 
-var (
-	commitID string
-)
+var commitID string
 
 func main() {
 	geoip.Init()
@@ -34,8 +33,8 @@ func main() {
 	logrus.Debugln("Debug level enabled")
 	logrus.Traceln("Trace level enabled")
 
-	os.MkdirAll("/efs/rdp", 0777)
-	os.Chmod("/efs/rdp", os.ModePerm)
+	_ = os.MkdirAll("/efs/rdp", 0o777)
+	_ = os.Chmod("/efs/rdp", os.ModePerm)
 
 	// XXX
 	pmHost := config.GetPolicyManagementEndPoint()
@@ -67,11 +66,11 @@ func main() {
 			}
 			for _, event := range p.Events {
 				for _, id := range event.IDs {
-					chManagement.BroadCast(id, 1)
+					_ = chManagement.BroadCast(id, 1)
 				}
 			}
 		} else {
-			http.Error(w, fmt.Sprint("not allow method"), http.StatusInternalServerError)
+			http.Error(w, "not allow method", http.StatusInternalServerError)
 		}
 	}))
 	mux.HandleFunc("/sessions/", guac.WithMetrics(func(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +130,7 @@ func requestPolicy(appID string, userID string) []string {
 
 	var p PolicyResponse
 	body, _ := ioutil.ReadAll(resp.Body)
-	json.Unmarshal(body, &p)
+	_ = json.Unmarshal(body, &p)
 	if p.Actions != nil {
 		return p.Actions
 	}
@@ -198,7 +197,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	app := dynamodbcli.GetResourceById(appId)
 
-	//session recording
+	// session recording
 	streamId := uuid.NewV4()
 	s3key := time.Now().Format(time.RFC3339)
 	sku := dynamodbcli.GetTenantById(tenantId).TenantType
@@ -273,9 +272,9 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	logrus.Debug("Connecting to guacd")
 	var addr *net.TCPAddr
 	if os.Getenv("POD_IP") != "" {
-		addr, err = net.ResolveTCPAddr("tcp", "guacd-service:4822")
+		addr, _ = net.ResolveTCPAddr("tcp", "guacd-service:4822")
 	} else {
-		addr, err = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
+		addr, _ = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
 	}
 
 	conn, err := net.DialTCP("tcp", nil, addr)
@@ -323,7 +322,7 @@ func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
 				logrus.Infof("received msg %#v", request)
 				for _, event := range request.Events {
 					for _, id := range event.IDs {
-						chManagement.BroadCast(id, 1)
+						_ = chManagement.BroadCast(id, 1)
 					}
 				}
 			}

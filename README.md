@@ -1,6 +1,8 @@
+![cod cov](https://appaegis-codecoverage.s3.amazonaws.com/guac/badge.svg)
+
 # guac
 
-A port of the [Apache Guacamole client](https://github.com/apache/guacamole-client) to Go. 
+A port of the [Apache Guacamole client](https://github.com/apache/guacamole-client) to Go.
 
 Apache Guacamole provides access to your desktop using remote desktop protocols in your web browser without any plugins.
 

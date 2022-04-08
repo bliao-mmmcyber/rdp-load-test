@@ -1,16 +1,16 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac"
-	"github.com/wwt/guac/lib/logging"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/lib/logging"
+	guac "github.com/wwt/guac/pkg"
 )
 
 func main() {
-
 	logging.Init()
 
 	podName := os.Getenv("POD_NAME")

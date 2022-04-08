@@ -134,9 +134,9 @@ func (s *Stream) ReadSome() (instruction []byte, err error) {
 
 		n, err = s.conn.Read(s.buffer[len(s.buffer):cap(s.buffer)])
 		if err != nil && n == 0 {
-			switch err.(type) {
+			switch t := err.(type) {
 			case net.Error:
-				ex := err.(net.Error)
+				ex := t
 				if ex.Timeout() {
 					err = ErrUpstreamTimeout.NewError("Connection to guacd timed out.", err.Error())
 				} else {

@@ -2,10 +2,11 @@ package guac
 
 import (
 	"fmt"
-	logger "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"strings"
+
+	logger "github.com/sirupsen/logrus"
 )
 
 const (
@@ -74,7 +75,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("Internal error in HTTP tunnel.", err)
 		s.sendError(w, guacErr.Status, "Internal server error.")
 	}
-	return
 }
 
 func (s *Server) handleTunnelRequestCore(response http.ResponseWriter, request *http.Request) (err error) {

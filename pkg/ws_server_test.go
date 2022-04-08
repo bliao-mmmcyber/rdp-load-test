@@ -2,11 +2,12 @@ package guac
 
 import (
 	"bytes"
-	"github.com/wwt/guac/lib/logging"
 	"io"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/wwt/guac/lib/logging"
 )
 
 func TestWebsocketServer_guacdToWs(t *testing.T) {
@@ -59,9 +60,7 @@ func (f *fakeTunnel) AcquireReader() InstructionReader {
 	return f.reader
 }
 
-func (f *fakeTunnel) ReleaseReader() {
-	return
-}
+func (f *fakeTunnel) ReleaseReader() {}
 
 func (f *fakeTunnel) HasQueuedReaderThreads() bool {
 	return false
@@ -71,9 +70,7 @@ func (f *fakeTunnel) AcquireWriter() io.Writer {
 	return f.writer
 }
 
-func (f *fakeTunnel) ReleaseWriter() {
-	return
-}
+func (f *fakeTunnel) ReleaseWriter() {}
 
 func (f *fakeTunnel) HasQueuedWriterThreads() bool {
 	return false
