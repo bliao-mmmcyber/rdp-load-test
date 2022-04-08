@@ -37,7 +37,7 @@ func main() {
 	_ = os.MkdirAll("/efs/rdp", 0o777)
 	_ = os.Chmod("/efs/rdp", os.ModePerm)
 
-	go clean()
+	go cleanExpiredRdpFiles()
 
 	// XXX
 	pmHost := config.GetPolicyManagementEndPoint()
@@ -333,8 +333,9 @@ func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
 	}
 }
 
-func clean() {
+func cleanExpiredRdpFiles() {
 	tick := time.NewTicker(10 * time.Minute)
+	defer tick.Stop()
 	for range tick.C {
 		utils.CleanExpiredFiles("/efs/rdp/*", "*", 24*time.Hour)
 	}
