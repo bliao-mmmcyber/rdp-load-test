@@ -14,6 +14,7 @@ import (
 
 	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/utils"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	uuid "github.com/satori/go.uuid"
@@ -35,6 +36,8 @@ func main() {
 
 	_ = os.MkdirAll("/efs/rdp", 0o777)
 	_ = os.Chmod("/efs/rdp", os.ModePerm)
+
+	go clean()
 
 	// XXX
 	pmHost := config.GetPolicyManagementEndPoint()
@@ -327,6 +330,13 @@ func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
 				}
 			}
 		}
+	}
+}
+
+func clean() {
+	tick := time.NewTicker(10 * time.Minute)
+	for range tick.C {
+		utils.CleanExpiredFiles("/efs/rdp/*", "*", 24*time.Hour)
 	}
 }
 
