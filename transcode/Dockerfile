@@ -2,7 +2,7 @@ ARG golang_builder_base
 ARG guacd
 
 FROM $golang_builder_base as base
-FROM golang:1.16 as build-env
+FROM golang:1.17.8 as build-env
 
 WORKDIR /go/src/app
 COPY --from=base /go/src/golang-common /go/src/golang-common
