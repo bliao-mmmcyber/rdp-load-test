@@ -1,6 +1,7 @@
 ARG golang_builder_base
+ARG golang_ver
 FROM $golang_builder_base as base
-FROM golang:1.16 as build-env
+FROM golang:$golang_ver as build-env
 
 WORKDIR /go/src/app
 COPY --from=base /go/src/golang-common /go/src/golang-common

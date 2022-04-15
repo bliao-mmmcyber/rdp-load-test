@@ -2,10 +2,8 @@ module github.com/wwt/guac
 
 go 1.15
 
-replace github.com/appaegis/golang-common => ../golang-common
-
 require (
-	github.com/appaegis/golang-common v0.0.0-20210118093202-088b8b8751c7
+	github.com/appaegis/golang-common v0.0.0-20220413132808-25394bd1cc58
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/oschwald/geoip2-golang v1.5.0

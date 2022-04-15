@@ -4,6 +4,7 @@ $(shell git submodule update --init)
 endif
 DOCKER_BUILD_ARGS=--build-arg guacd=$(DOCKER_REGISTRY)/$(ORG_NAME)/guacd:latest ## change once we done with the server $(call get_image_tag)
 
+guac_transcode.iid: DOCKER_REPOSITORY=rdp-transcode
 build: docker.build
 
 release: docker.release
