@@ -105,20 +105,11 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	logrus.Debug("Connected to tunnel")
 
-	query := r.URL.Query()
-	userId := query.Get("userId")
-	appId := query.Get("appId")
-	logrus.Debug("Query Parameters userId:", userId)
-	logrus.Debug("Query Parameters appId:", appId)
-
-	sessionDataKey := appId + "/" + userId
+	sessionDataKey := tunnel.GetUUID()
 	defer func() {
 		logrus.Infof("session data delete: %s", sessionDataKey)
 		SessionDataStore.Delete(sessionDataKey)
 	}()
-	//if data, ok := SessionDataStore.Get(sessionDataKey).(SessionCommonData); ok {
-	//	logrus.Infof("session data alert rules: %v", data)
-	//}
 
 	id := tunnel.ConnectionID()
 
@@ -143,17 +134,23 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer tunnel.ReleaseReader()
 
 	if s.channelManagement != nil {
-		ch := make(chan int, 1)
-		channelID := uuid.NewV4()
-		defer func() { _ = s.channelManagement.Remove(appId, userId, channelID.String()) }()
-		if userId != "" {
-			_ = s.channelManagement.Add(userId, channelID.String(), ch)
+		query := r.URL.Query()
+		userId := query.Get("userId")
+		appId := query.Get("appId")
+		logrus.Debug("Query Parameters userId:", userId)
+		logrus.Debug("Query Parameters appId:", appId)
+		if userId != "" && appId != "" {
+			ch := make(chan int, 1)
+			channelID := uuid.NewV4()
+			defer func() { _ = s.channelManagement.Remove(appId, userId, channelID.String()) }()
+			if userId != "" {
+				_ = s.channelManagement.Add(userId, channelID.String(), ch)
+			}
+			if appId != "" {
+				_ = s.channelManagement.Add(appId, channelID.String(), ch)
+			}
+			go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
 		}
-		if appId != "" {
-			_ = s.channelManagement.Add(appId, channelID.String(), ch)
-		}
-
-		go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
 	}
 
 	go wsToGuacd(ws, writer, sessionDataKey, tunnel.GetLoggingInfo().TenantId)
