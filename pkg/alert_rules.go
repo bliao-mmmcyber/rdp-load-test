@@ -3,6 +3,7 @@ package guac
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"net/http"
 
@@ -39,7 +40,11 @@ type SessionCommonData struct {
 	Rules            map[string]*AlertRuleData
 	RoleIDs          []string
 	SessionStartTime int64
-	ConnectionId     string
+
+	RdpSessionId string
+	//ConnectionId string //guacamole active connection id
+	GuacdAddr string
+	Websocket *websocket.Conn
 }
 
 // response from our aggregation API

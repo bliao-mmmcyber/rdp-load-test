@@ -202,7 +202,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	sku := dynamodbcli.GetTenantById(tenantId).TenantType
 
 	// session recording
-	streamId := uuid.NewV4()
+	sessionId := uuid.NewV4()
 	s3key := time.Now().Format(time.RFC3339)
 	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 	enableRecording := false
@@ -225,11 +225,11 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 
 	alertRulesString := query.Get("alertRules")
-	sessionDataKey := streamId.String()
-	logrus.Infof("streamId %s", sessionDataKey)
-
+	shareSessionID := query.Get("shareSessionId")
+	sessionDataKey := sessionId.String()
 	session := &guac.SessionCommonData{}
-	if query.Get("streamId") == "" {
+	if shareSessionID == "" { //launch a new rdp session
+		logrus.Infof("sessionId %s", sessionDataKey)
 		session.TenantID = tenantId
 		session.AppID = appId
 		session.Email = userId
@@ -258,9 +258,14 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		}
 		guac.SessionDataStore.Set(sessionDataKey, session)
 		logrus.Printf("session data stored %s %v", sessionDataKey, session)
-	} else {
-		session = guac.SessionDataStore.Get(query.Get("streamId")).(*guac.SessionCommonData)
-		config.ConnectionID = session.ConnectionId
+	} else { // join a existing rdp session
+		sessionData := guac.SessionDataStore.Get(shareSessionID)
+		room, ok := guac.GetRdpSessionRoom(shareSessionID)
+		if sessionData == nil || !ok {
+			return nil, fmt.Errorf("session not found by session id %s", shareSessionID)
+		}
+		config.ConnectionID = room.RdpConnectionId
+		session = sessionData.(*guac.SessionCommonData)
 	}
 
 	if query.Get("width") != "" {
@@ -279,34 +284,35 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 	config.AudioMimetypes = []string{"audio/L16", "rate=44100", "channels=2"}
 
-	logrus.Debug("Connecting to guacd")
-	var addr *net.TCPAddr
-	if os.Getenv("POD_IP") != "" {
-		addr, _ = net.ResolveTCPAddr("tcp", "guacd-service:4822")
+	var conn net.Conn
+	if shareSessionID != "" {
+		logrus.Infof("Connecting to guacd %s", session.GuacdAddr)
+		conn, err = net.Dial("tcp", session.GuacdAddr)
 	} else {
-		addr, _ = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
-	}
+		var addr *net.TCPAddr
+		if os.Getenv("POD_IP") != "" {
+			addr, _ = net.ResolveTCPAddr("tcp", "guacd-service:4822")
+		} else {
+			addr, _ = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
+		}
+		session.GuacdAddr = addr.String()
+		logrus.Infof("Connecting to guacd %s", session.GuacdAddr)
 
-	conn, err := net.DialTCP("tcp", nil, addr)
-	if err != nil {
-		logrus.Errorln("error while connecting to guacd", err)
-		return nil, err
+		conn, err = net.DialTCP("tcp", nil, addr)
+		if err != nil {
+			logrus.Errorln("error while connecting to guacd", err)
+			return nil, err
+		}
 	}
 
 	stream := guac.NewStream(conn, guac.SocketTimeout)
 
-	//logrus.Debug("Connected to guacd")
-	//if request.URL.Query().Get("streamId") != "" {
-	//	config.ConnectionID = request.URL.Query().Get("streamId")
-	//}
 	//logrus.Debugf("Starting handshake with %#v", config)
 	err = stream.Handshake(config)
 	if err != nil {
 		return nil, err
 	}
-	session.ConnectionId = stream.ConnectionID
-	logrus.Debugf("Socket configured, connection id %s", session.ConnectionId)
-	return guac.NewSimpleTunnel(stream, streamId, loggingInfo), nil
+	return guac.NewSimpleTunnel(stream, sessionId, loggingInfo), nil
 }
 
 func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {

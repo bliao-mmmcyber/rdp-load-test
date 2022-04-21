@@ -4,23 +4,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/appaegis/golang-common/pkg/config"
-
+	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
-
-	"github.com/appaegis/golang-common/pkg/httpclient"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 )
 
 var appaegisCmdOpcodeIns = []byte("5.AACMD")
+
+var keyCmdOpcodeIns = []byte("3.key")
+var mouseCmdOpcodeIns = []byte("5.mouse")
 
 // WebsocketServer implements a websocket-based connection to guacd.
 type WebsocketServer struct {
@@ -86,6 +84,18 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logrus.Traceln("Error closing websocket", err)
 		}
 	}()
+	query := r.URL.Query()
+	shareSessionId := query.Get("shareSessionId")
+	userId := query.Get("userId")
+	var sharePermissions string
+	if shareSessionId != "" { // auth check
+		valid, permissions := AuthShare(userId, shareSessionId)
+		if !valid {
+			logrus.Infof("auth share failed, user %s, session %s", userId, shareSessionId)
+			return
+		}
+		sharePermissions = permissions
+	}
 
 	logrus.Debug("Connecting to tunnel")
 	var tunnel Tunnel
@@ -96,6 +106,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tunnel, e = s.connectWs(ws, r)
 	}
 	if e != nil {
+		logrus.Errorf("connect to rdp failed %v", e)
 		return
 	}
 	defer func() {
@@ -105,12 +116,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	logrus.Debug("Connected to tunnel")
 
-	sessionDataKey := tunnel.GetUUID()
-	defer func() {
-		logrus.Infof("session data delete: %s", sessionDataKey)
-		SessionDataStore.Delete(sessionDataKey)
-	}()
-
+	sessionId := tunnel.GetUUID()
 	id := tunnel.ConnectionID()
 
 	if s.OnConnect != nil {
@@ -133,12 +139,11 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer tunnel.ReleaseWriter()
 	defer tunnel.ReleaseReader()
 
+	appId := query.Get("appId")
+	logrus.Debug("Query Parameters userId:", userId)
+	logrus.Debug("Query Parameters appId:", appId)
 	if s.channelManagement != nil {
-		query := r.URL.Query()
-		userId := query.Get("userId")
-		appId := query.Get("appId")
-		logrus.Debug("Query Parameters userId:", userId)
-		logrus.Debug("Query Parameters appId:", appId)
+
 		if userId != "" && appId != "" {
 			ch := make(chan int, 1)
 			channelID := uuid.NewV4()
@@ -153,9 +158,40 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go wsToGuacd(ws, writer, sessionDataKey, tunnel.GetLoggingInfo().TenantId)
+	var client *RdpClient
+	if shareSessionId == "" { //rdp session owner connected
+		e := dbAccess.SaveActiveRdpSession(&dynamodbcli.ActiveRdpSession{
+			Id:        sessionId,
+			Owner:     userId,
+			TenantId:  tunnel.GetLoggingInfo().TenantId,
+			CreatedAt: time.Now(),
+		})
+		if e != nil {
+			logrus.Errorf("save active rdp session failed")
+		}
+		e = kv.Put(fmt.Sprintf("guac-%s", sessionId), GuacIp+":4567")
+		if e != nil {
+			logrus.Errorf("put to cache failed %v", e)
+		}
+		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID())
+	} else {
+		sessionId = shareSessionId
+		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
+		if e != nil {
+			logrus.Errorf("join to room failed %s", sessionId)
+			return
+		}
+	}
+
+	IncRdpCount(tunnel.GetLoggingInfo().TenantId)
+	defer DecRdpCount(tunnel.GetLoggingInfo().TenantId)
+
+	go wsToGuacd(ws, writer, sessionId, client)
 	guacdToWs(ws, reader)
 	AddEncodeRecoding(tunnel.GetLoggingInfo())
+
+	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
+	LeaveRoom(sessionId, userId)
 
 	logrus.Info("server HTTP done")
 }
@@ -166,10 +202,7 @@ type MessageReader interface {
 	ReadMessage() (int, []byte, error)
 }
 
-func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, tenantId string) {
-	IncRdpCount(tenantId)
-	defer DecRdpCount(tenantId)
-
+func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, client *RdpClient) {
 	for {
 		_, data, err := ws.ReadMessage()
 		if err != nil {
@@ -182,15 +215,15 @@ func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, tenan
 			continue
 		}
 
-		// download/upload check
-		// if bytes.HasPrefix(data, downloadCmdOpcodeIns) ||
-		// 	bytes.HasPrefix(data, uploadCmdOpcodeIns) {
-		// 	handleAppaegisCommand(ws, data, sessionDataKey)
-		// 	continue
-		// }
-
 		if bytes.HasPrefix(data, appaegisCmdOpcodeIns) {
-			handleAppaegisCommand(ws, data, sessionDataKey)
+			handleAppaegisCommand(client, data, sessionDataKey)
+			continue
+		}
+
+		if !client.Mouse && bytes.HasPrefix(data, mouseCmdOpcodeIns) {
+			continue
+		}
+		if !client.Keyboard && bytes.HasPrefix(data, keyCmdOpcodeIns) {
 			continue
 		}
 
@@ -236,7 +269,7 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 				if err == websocket.ErrCloseSent {
 					return
 				}
-				logrus.Traceln("Failed sending message to ws", err)
+				logrus.Errorf("Failed sending message to ws %v", err)
 				return
 			}
 			buf.Reset()
@@ -281,7 +314,7 @@ func GetDrivePathInEFS(tenantID, appID, userID string) string {
 // J json response helper type
 type J map[string]interface{}
 
-func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string) {
+func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string) {
 	logrus.Printf("receive: %s\n", cmd)
 	instruction, err := Parse(cmd)
 	if err != nil {
@@ -293,99 +326,15 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		logrus.Infof("session data not found: %s", sessionDataKey)
 		return
 	}
-	// logrus.Infof("session data %v", ses)
 
-	result := J{} //nolint
+	//result := J{} //nolint
+	result := &Instruction{}
 	op := instruction.Args[0]
 	requestID := instruction.Args[1]
 	logrus.Printf("op: %s, requestID: %s", op, requestID)
-
-	// operations switch
-	if op == "download-check" {
-		fileCount, err := strconv.Atoi(instruction.Args[2])
-		if err != nil {
-			fileCount = 1
-		}
-		ok, block := CheckAlertRule(ses, "download", fileCount)
-		if !ok && block {
-			result = J{
-				"ok": false,
-			}
-		} else {
-			result = J{
-				"ok":     true,
-				"prompt": !ok,
-			}
-		}
-	} else if op == "log-download" {
-		fileCount, err := strconv.Atoi(instruction.Args[2])
-		if err != nil {
-			fileCount = 1
-		}
-		logging.Log(logging.Action{
-			AppTag:    "guac.download",
-			TenantID:  ses.TenantID,
-			UserEmail: ses.Email,
-			AppID:     ses.AppID,
-			RoleIDs:   ses.RoleIDs,
-			FileCount: fileCount,
-			ClientIP:  ses.ClientIP,
-		})
-		IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
-		result = J{
-			"ok":    true,
-			"count": fileCount,
-		}
-	} else if op == "dlp-upload" {
-		fileName := instruction.Args[2]
-		logrus.Debug("dlp-upload: ", fileName)
-
-		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
-			"Content-Type": "application/json",
-		}, map[string]interface{}{
-			"appID":      ses.AppID,
-			"tenantID":   ses.TenantID,
-			"path":       fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
-			"user":       ses.Email,
-			"service":    "rdp",
-			"actionType": "upload",
-			"location":   ses.ClientIsoCountry,
-			"appName":    ses.AppName,
-			"fileName":   fileName,
-			"timestamp":  time.Now().UnixNano() / 1000000,
-		})
-		fetcher.Do()
-
-		result = J{
-			"ok": true,
-		}
-	} else if op == "dlp-download" {
-		filePath := instruction.Args[2]
-		logrus.Debug("dlp-download: ", filePath)
-		fileTokens := strings.Split(filePath, "/")
-		fileName := fileTokens[0]
-		if len(fileTokens) > 0 {
-			fileName = fileTokens[len(fileTokens)-1]
-		}
-		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
-			"Content-Type": "application/json",
-		}, map[string]interface{}{
-			"appID":      ses.AppID,
-			"tenantID":   ses.TenantID,
-			"path":       fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath),
-			"user":       ses.Email,
-			"service":    "rdp",
-			"actionType": "download",
-			"location":   ses.ClientIsoCountry,
-			"appName":    ses.AppName,
-			"fileName":   fileName,
-			"timestamp":  time.Now().UnixNano() / 1000000,
-		})
-		fetcher.Do()
-
-		result = J{
-			"ok": true,
-		}
+	command, e := GetCommandByOp(instruction)
+	if e == nil {
+		result = command.Exec(instruction, ses, client)
 	} else {
 		logging.Log(logging.Action{
 			AppTag:    "guac." + strings.ToLower(op),
@@ -395,16 +344,19 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 			RoleIDs:   ses.RoleIDs,
 			ClientIP:  ses.ClientIP,
 		})
-		result = J{
+		j := J{
 			"ng": 1,
 		}
+		data, _ := json.Marshal(j)
+		result = NewInstruction(APPAEGIS_RESP_OP, requestID, string(data))
 	}
-
-	resultJSON, _ := json.Marshal(result)
-	respInstruction := NewInstruction("appaegis-resp", requestID, string(resultJSON))
-	resp := []byte(respInstruction.String())
-	logrus.Debug("appaegis cmd send: ", string(resp))
-	if err := ws.WriteMessage(websocket.TextMessage, resp); err != nil {
-		logrus.Println("write error: ", err)
+	//resultJSON, _ := json.Marshal(result)
+	//respInstruction := NewInstruction("appaegis-resp", requestID, string(resultJSON))
+	if result != nil {
+		resp := []byte(result.String())
+		logrus.Debug("appaegis cmd send: ", string(resp))
+		if err := client.Websocket.WriteMessage(websocket.TextMessage, resp); err != nil {
+			logrus.Println("write error: ", err)
+		}
 	}
 }
