@@ -50,6 +50,29 @@ func (_m *DbAccess) GetInviteeByUserIdAndSessionId(userId string, sessionId stri
 	return r0, r1
 }
 
+// QueryUsersByTenantAndUserPrefix provides a mock function with given fields: tenantId, userPrefix
+func (_m *DbAccess) QueryUsersByTenantAndUserPrefix(tenantId string, userPrefix string) ([]dynamodbcli.UserEntry, error) {
+	ret := _m.Called(tenantId, userPrefix)
+
+	var r0 []dynamodbcli.UserEntry
+	if rf, ok := ret.Get(0).(func(string, string) []dynamodbcli.UserEntry); ok {
+		r0 = rf(tenantId, userPrefix)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]dynamodbcli.UserEntry)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(tenantId, userPrefix)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SaveActiveRdpSession provides a mock function with given fields: session
 func (_m *DbAccess) SaveActiveRdpSession(session *dynamodbcli.ActiveRdpSession) error {
 	ret := _m.Called(session)

@@ -3,7 +3,8 @@ module github.com/wwt/guac
 go 1.17
 
 require (
-	github.com/appaegis/golang-common v0.0.0-20220420132912-2d6444e42a80
+	github.com/appaegis/golang-common v0.0.0-20220422034109-3158b7e6c84d
+	github.com/aws/aws-sdk-go v1.42.2
 	github.com/gorilla/websocket v1.4.2
 	github.com/oschwald/geoip2-golang v1.5.0
 	github.com/prometheus/client_golang v1.11.0
@@ -19,7 +20,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v0.8.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.2.0 // indirect
 	github.com/aws/aws-lambda-go v1.27.0 // indirect
-	github.com/aws/aws-sdk-go v1.42.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect

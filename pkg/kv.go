@@ -1,14 +1,17 @@
 package guac
 
 import (
+	"os"
+
 	"github.com/appaegis/golang-common/pkg/cache"
 	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/sirupsen/logrus"
-	"os"
 )
 
-var kv cache.SimpleCache
-var GuacIp = "127.0.0.1"
+var (
+	kv     cache.SimpleCache
+	GuacIp = "127.0.0.1"
+)
 
 func init() {
 	kv = cache.NewRedisStore(config.GetRedisEndPoint(), cache.SimpleCacheConfiguration{
@@ -19,5 +22,4 @@ func init() {
 		GuacIp = os.Getenv("POD_IP")
 	}
 	logrus.Infof("init redis done, guac ip %s", GuacIp)
-
 }

@@ -228,7 +228,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	shareSessionID := query.Get("shareSessionId")
 	sessionDataKey := sessionId.String()
 	session := &guac.SessionCommonData{}
-	if shareSessionID == "" { //launch a new rdp session
+	if shareSessionID == "" { // launch a new rdp session
 		logrus.Infof("sessionId %s", sessionDataKey)
 		session.TenantID = tenantId
 		session.AppID = appId
@@ -288,6 +288,10 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	if shareSessionID != "" {
 		logrus.Infof("Connecting to guacd %s", session.GuacdAddr)
 		conn, err = net.Dial("tcp", session.GuacdAddr)
+		if err != nil {
+			logrus.Errorf("err connecting to guacd %s %v", session.GuacdAddr, err)
+			return nil, err
+		}
 	} else {
 		var addr *net.TCPAddr
 		if os.Getenv("POD_IP") != "" {
@@ -307,7 +311,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	stream := guac.NewStream(conn, guac.SocketTimeout)
 
-	//logrus.Debugf("Starting handshake with %#v", config)
+	// logrus.Debugf("Starting handshake with %#v", config)
 	err = stream.Handshake(config)
 	if err != nil {
 		return nil, err

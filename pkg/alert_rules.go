@@ -3,12 +3,11 @@ package guac
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/appaegis/golang-common/pkg/config"
-
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -42,9 +41,8 @@ type SessionCommonData struct {
 	SessionStartTime int64
 
 	RdpSessionId string
-	//ConnectionId string //guacamole active connection id
-	GuacdAddr string
-	Websocket *websocket.Conn
+	GuacdAddr    string
+	Websocket    *websocket.Conn
 }
 
 // response from our aggregation API

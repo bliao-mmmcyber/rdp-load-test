@@ -2,24 +2,20 @@ package guac
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/wwt/guac/mocks"
-	"testing"
 )
 
-var db = new(mocks.DbAccess)
-
-func init() {
-	dbAccess = db //inject mock
-}
-
 func TestAuthShare(t *testing.T) {
-
 	// user not shared
+	db := new(mocks.DbAccess)
+	dbAccess = db
 	db.On("GetInviteeByUserIdAndSessionId", "user2", "sessionId").Return(nil, fmt.Errorf(""))
-	result, permissions := AuthShare("user2", "sessionId")
+	result, _ := AuthShare("user2", "sessionId")
 	assert.False(t, result)
 
 	// normal case
@@ -27,22 +23,22 @@ func TestAuthShare(t *testing.T) {
 	db.On("GetInviteeByUserIdAndSessionId", "user3", "sessionId").Return(&dynamodbcli.ActiveRdpSessionInvitee{
 		Permissions: "mouse",
 	}, nil)
-	result, permissions = AuthShare("user3", "sessionId")
+	result, permissions := AuthShare("user3", "sessionId")
 	assert.True(t, result)
 	assert.Equal(t, permissions, "mouse")
 
-	//clear data
+	// clear data
 	delete(rdpRooms, "sessionId")
-
 }
 
 func TestSingleAdmin(t *testing.T) {
+	db := new(mocks.DbAccess)
+	dbAccess = db
 
-	NewRdpSessionRoom("1", "user1", nil, "")
+	NewRdpSessionRoom("singleAdmin", "user1", nil, "")
 	db.On("DeleteRdpSession", mock.Anything).Return(nil)
-	LeaveRoom("1", "user1")
+	_ = LeaveRoom("singleAdmin", "user1")
 	assert.Equal(t, 0, len(rdpRooms))
-
 }
 
 func TestTwoAdmin(t *testing.T) {
@@ -52,12 +48,11 @@ func TestTwoAdmin(t *testing.T) {
 
 	ws := new(mocks.WriterCloser)
 	ws.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	JoinRoom("1", "user2", ws, "admin")
+	_, _ = JoinRoom("1", "user2", ws, "admin")
 
-	LeaveRoom("1", "user1")
+	_ = LeaveRoom("1", "user1")
 	assert.Equal(t, 1, len(rdpRooms))
 	assert.Equal(t, 1, len(rdpRooms["1"].Users))
-
 }
 
 func TestSingleAdminLeave(t *testing.T) {
@@ -67,26 +62,24 @@ func TestSingleAdminLeave(t *testing.T) {
 
 	ws := new(mocks.WriterCloser)
 	ws.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	JoinRoom("1", "user2", ws, "mouse")
+	_, _ = JoinRoom("1", "user2", ws, "mouse")
 
 	ws.On("Close").Return(nil)
-	LeaveRoom("1", "user1")
+	_ = LeaveRoom("1", "user1")
 
 	assert.Equal(t, 0, len(rdpRooms))
-
 }
 
 func TestNormalUserLeave(t *testing.T) {
-
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
 	NewRdpSessionRoom("1", "user1", ws1, "")
 
 	ws2 := new(mocks.WriterCloser)
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	JoinRoom("1", "user2", ws2, "mouse")
+	_, _ = JoinRoom("1", "user2", ws2, "mouse")
 
-	LeaveRoom("1", "user2")
+	_ = LeaveRoom("1", "user2")
 	assert.Equal(t, 1, len(rdpRooms))
 	assert.Equal(t, 1, len(rdpRooms["1"].Users))
 }

@@ -4,21 +4,23 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
-	"io"
-	"net/http"
-	"strings"
-	"time"
 )
 
-var appaegisCmdOpcodeIns = []byte("5.AACMD")
-
-var keyCmdOpcodeIns = []byte("3.key")
-var mouseCmdOpcodeIns = []byte("5.mouse")
+var (
+	appaegisCmdOpcodeIns = []byte("5.AACMD")
+	keyCmdOpcodeIns      = []byte("3.key")
+	mouseCmdOpcodeIns    = []byte("5.mouse")
+)
 
 // WebsocketServer implements a websocket-based connection to guacd.
 type WebsocketServer struct {
@@ -143,7 +145,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logrus.Debug("Query Parameters userId:", userId)
 	logrus.Debug("Query Parameters appId:", appId)
 	if s.channelManagement != nil {
-
 		if userId != "" && appId != "" {
 			ch := make(chan int, 1)
 			channelID := uuid.NewV4()
@@ -159,7 +160,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var client *RdpClient
-	if shareSessionId == "" { //rdp session owner connected
+	if shareSessionId == "" { // rdp session owner connected
 		e := dbAccess.SaveActiveRdpSession(&dynamodbcli.ActiveRdpSession{
 			Id:        sessionId,
 			Owner:     userId,
@@ -191,7 +192,10 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	AddEncodeRecoding(tunnel.GetLoggingInfo())
 
 	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
-	LeaveRoom(sessionId, userId)
+	e = LeaveRoom(sessionId, userId)
+	if e != nil {
+		logrus.Errorf("leave room failed, session %s, e %v", sessionId, e)
+	}
 
 	logrus.Info("server HTTP done")
 }
@@ -327,8 +331,8 @@ func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string)
 		return
 	}
 
-	//result := J{} //nolint
-	result := &Instruction{}
+	// result := J{} //nolint
+	var result *Instruction
 	op := instruction.Args[0]
 	requestID := instruction.Args[1]
 	logrus.Printf("op: %s, requestID: %s", op, requestID)
@@ -350,8 +354,8 @@ func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string)
 		data, _ := json.Marshal(j)
 		result = NewInstruction(APPAEGIS_RESP_OP, requestID, string(data))
 	}
-	//resultJSON, _ := json.Marshal(result)
-	//respInstruction := NewInstruction("appaegis-resp", requestID, string(resultJSON))
+	// resultJSON, _ := json.Marshal(result)
+	// respInstruction := NewInstruction("appaegis-resp", requestID, string(resultJSON))
 	if result != nil {
 		resp := []byte(result.String())
 		logrus.Debug("appaegis cmd send: ", string(resp))

@@ -3,24 +3,29 @@ package guac
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/httpclient"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type Command interface {
 	Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction
 }
 
+var mailService MailService = RdpMailService{}
+
 var commands = make(map[string]Command)
 
-const APPAEGIS_RESP_OP = "appaegis-resp"
-const SESSION_SHARE_OP = "session-sharing"
+const (
+	APPAEGIS_RESP_OP = "appaegis-resp"
+	SESSION_SHARE_OP = "session-sharing"
+)
 
 func init() {
 	commands[SHARE_SESSION] = RequestSharingCommand{}
@@ -29,6 +34,7 @@ func init() {
 	commands[LOG_DOWNLOAD] = LogDownloadCommand{}
 	commands[DOWNLOAD_CHECK] = DownloadCheckCommand{}
 	commands[SET_PERMISSONS] = SetPermissions{}
+	commands[SEARCH_USER] = SearchUserCommand{}
 }
 
 func GetCommandByOp(instruction *Instruction) (Command, error) {
@@ -46,8 +52,7 @@ func GetSharingUrl(sessionId string) string {
 	return url
 }
 
-type SetPermissions struct {
-}
+type SetPermissions struct{}
 
 func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
 	if !client.Admin {
@@ -81,8 +86,26 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 	return nil
 }
 
-type RequestSharingCommand struct {
+type SearchUserCommand struct{}
+
+func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+	if len(instruction.Args) < 3 {
+		logrus.Infof("instruction args err")
+		return nil
+	}
+	prefix := instruction.Args[2]
+	users, e := dbAccess.QueryUsersByTenantAndUserPrefix(session.TenantID, prefix)
+	if e != nil {
+		return nil
+	}
+	ins := NewInstruction(SESSION_SHARE_OP, SEARCH_USER_ACK, instruction.Args[1])
+	for _, u := range users {
+		ins.Args = append(ins.Args, u.ID)
+	}
+	return ins
 }
+
+type RequestSharingCommand struct{}
 
 func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
 	var e error
@@ -90,25 +113,34 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 	if e != nil {
 		status = "500"
 	}
+
+	url := GetSharingUrl(session.RdpSessionId)
 	for i := 2; i < len(instruction.Args); i++ {
 		var invitee, permissions string
 		invitee = instruction.Args[i]
 		if i+1 < len(instruction.Args) {
 			permissions = instruction.Args[i+1]
 		}
-		e := dbAccess.ShareRdpSession(invitee, permissions, session.RdpSessionId)
+		e := AddSharingUser(session.RdpSessionId, invitee, permissions)
+		if e != nil {
+			logrus.Errorf("add invitee to room failed %v", e)
+			continue
+		}
+		e = dbAccess.ShareRdpSession(invitee, permissions, session.RdpSessionId)
 		if e != nil {
 			logrus.Errorf("share rdp session to user %s, permission %s, stream %s, failed %v", invitee, permissions, session.RdpSessionId, e)
 		}
+		e = mailService.SendInvitation(invitee, session.Email, url)
+		if e != nil {
+			logrus.Errorf("send invitation email to %s failed %v", invitee, e)
+		}
 	}
 
-	url := GetSharingUrl(session.RdpSessionId)
 	resp := NewInstruction(SESSION_SHARE_OP, "share-session-ack", instruction.Args[1], status, url, "")
 	return resp
 }
 
-type DlpDownloadCommand struct {
-}
+type DlpDownloadCommand struct{}
 
 func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
 	filePath := instruction.Args[2]
@@ -140,8 +172,7 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[1], string(data))
 }
 
-type DlpUploadCommand struct {
-}
+type DlpUploadCommand struct{}
 
 func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
 	fileName := instruction.Args[2]
@@ -170,8 +201,7 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[1], string(data))
 }
 
-type LogDownloadCommand struct {
-}
+type LogDownloadCommand struct{}
 
 func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
 	fileCount, err := strconv.Atoi(instruction.Args[2])
@@ -196,8 +226,7 @@ func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[1], string(data))
 }
 
-type DownloadCheckCommand struct {
-}
+type DownloadCheckCommand struct{}
 
 func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
 	fileCount, err := strconv.Atoi(instruction.Args[2])

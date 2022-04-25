@@ -9,4 +9,8 @@ const (
 	DOWNLOAD_CHECK    = "download-check"
 	SET_PERMISSONS    = "set-permissions"
 	MEMBERS           = "members"
+	SEARCH_USER       = "search-user"
+	SEARCH_USER_ACK   = "search-user-ack"
+
+	MAIL_SENDER = "account@appaegis.com"
 )

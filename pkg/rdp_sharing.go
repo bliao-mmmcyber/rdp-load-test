@@ -2,15 +2,18 @@ package guac
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 	"io"
 	"strings"
 	"sync"
+
+	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
 )
 
-var lock sync.Mutex
-var rdpRooms = make(map[string]*RdpSessionRoom)
+var (
+	lock     sync.Mutex
+	rdpRooms = make(map[string]*RdpSessionRoom)
+)
 
 type WriterCloser interface {
 	io.Closer
@@ -29,6 +32,7 @@ type RdpSessionRoom struct {
 	SessionId       string
 	RdpConnectionId string
 	Users           map[string]*RdpClient
+	Invitees        map[string]string
 }
 
 func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
@@ -36,7 +40,11 @@ func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
 		Opcode: SESSION_SHARE_OP,
 	}
 	args := []string{MEMBERS}
-	for _, u := range rdpRooms[r.SessionId].Users {
+	room, ok := rdpRooms[r.SessionId]
+	if !ok {
+		return ins
+	}
+	for _, u := range room.Users {
 		var permissions []string
 		if u.Mouse {
 			permissions = append(permissions, "mouse")
@@ -49,20 +57,24 @@ func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
 		}
 		args = append(args, fmt.Sprintf("%s:%s:1", u.UserId, strings.Join(permissions, ",")))
 	}
+	for u, permission := range room.Invitees {
+		if _, ok := room.Users[u]; !ok {
+			args = append(args, fmt.Sprintf("%s:%s:0", u, permission))
+		}
+	}
 	ins.Args = args
 	return ins
 }
 
 func AuthShare(userId, shareSessionId string) (bool, string) {
-	//return true, ""
+	// return true, ""
 
 	var permissions string
 	user, e := dbAccess.GetInviteeByUserIdAndSessionId(userId, shareSessionId)
 	if e != nil {
 		logrus.Errorf("query invitee by user %s and session %s failed", userId, shareSessionId)
 		return false, permissions
-	}
-	if e == nil {
+	} else {
 		permissions = user.Permissions
 	}
 	room, ok := GetRdpSessionRoom(shareSessionId)
@@ -106,7 +118,9 @@ func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, conne
 		SessionId:       sessionId,
 		Users:           make(map[string]*RdpClient),
 		RdpConnectionId: connectionId,
+		Invitees:        make(map[string]string),
 	}
+	room.Invitees[user] = "admin,keyboard,mouse"
 	room.Users[user] = &RdpClient{
 		Websocket: closer,
 		UserId:    user,
@@ -116,6 +130,18 @@ func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, conne
 	}
 	rdpRooms[sessionId] = room
 	return room.Users[user]
+}
+
+func AddSharingUser(sessionId string, user string, permissions string) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	if room, ok := GetRdpSessionRoom(sessionId); ok {
+		room.Invitees[user] = permissions
+		return nil
+	} else {
+		return fmt.Errorf("cannot find rdp room by id %s", sessionId)
+	}
 }
 
 func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string) (*RdpClient, error) {
@@ -161,12 +187,11 @@ func LeaveRoom(sessionId, user string) error {
 
 			delete(rdpRooms, sessionId)
 			SessionDataStore.Delete(sessionId)
-			dbAccess.DeleteRdpSession(sessionId)
-			logrus.Infof("remove session data %s, remaining size %d", sessionId, len(SessionDataStore.Data))
+			e := dbAccess.DeleteRdpSession(sessionId)
+			logrus.Infof("remove session data %s, remaining size %d, e %v", sessionId, len(SessionDataStore.Data), e)
 		}
 	} else {
 		return fmt.Errorf("cannot find rdp room by id %s", sessionId)
 	}
 	return nil
-
 }
