@@ -18,6 +18,7 @@ import (
 
 var (
 	appaegisCmdOpcodeIns = []byte("5.AACMD")
+	shareSessionOpIns    = []byte("15.session-sharing")
 	keyCmdOpcodeIns      = []byte("3.key")
 	mouseCmdOpcodeIns    = []byte("5.mouse")
 )
@@ -144,6 +145,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	appId := query.Get("appId")
 	logrus.Debug("Query Parameters userId:", userId)
 	logrus.Debug("Query Parameters appId:", appId)
+	sharing := false
 	if s.channelManagement != nil {
 		if userId != "" && appId != "" {
 			ch := make(chan int, 1)
@@ -154,8 +156,10 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			if appId != "" {
 				_ = s.channelManagement.Add(appId, channelID.String(), ch)
+				app := dynamodbcli.Singleon().QueryResource(appId)
+				sharing = app.AllowSharing
 			}
-			go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
+			go BroadCastToWs(ws, ch, sharing, appId, userId, s.channelManagement.RequestPolicyFunc)
 		}
 	}
 
@@ -174,7 +178,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if e != nil {
 			logrus.Errorf("put to cache failed %v", e)
 		}
-		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID())
+		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing)
 	} else {
 		sessionId = shareSessionId
 		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
@@ -219,7 +223,7 @@ func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, clien
 			continue
 		}
 
-		if bytes.HasPrefix(data, appaegisCmdOpcodeIns) {
+		if bytes.HasPrefix(data, appaegisCmdOpcodeIns) || bytes.HasPrefix(data, shareSessionOpIns) {
 			handleAppaegisCommand(client, data, sessionDataKey)
 			continue
 		}
@@ -281,17 +285,17 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 	}
 }
 
-func BroadCastToWs(ws MessageWriter, ch chan int, appId string, userId string, requestPolicy func(string, string) []string) {
+func BroadCastToWs(ws MessageWriter, ch chan int, sharing bool, appId string, userId string, requestPolicy func(string, string) []string) {
 	logrus.Debug("create BroadCastToWs")
-	BroadCastPolicy(ws, appId, userId, requestPolicy)
+	BroadCastPolicy(ws, sharing, appId, userId, requestPolicy)
 	for op := range ch {
 		if op == 1 {
-			BroadCastPolicy(ws, appId, userId, requestPolicy)
+			BroadCastPolicy(ws, sharing, appId, userId, requestPolicy)
 		}
 	}
 }
 
-func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolicy func(string, string) []string) {
+func BroadCastPolicy(ws MessageWriter, sharing bool, appId string, userId string, requestPolicy func(string, string) []string) {
 	actions := requestPolicy(appId, userId)
 	if actions == nil {
 		logrus.Debug("policy empty:", appId, userId)
@@ -299,6 +303,10 @@ func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolic
 	}
 	instruction := []string{"policy"}
 	instruction = append(instruction, actions...)
+	logrus.Debugf("sharing %v", sharing)
+	if sharing {
+		instruction = append(instruction, "share")
+	}
 	ins := NewInstruction("sync", instruction...)
 	insValue := ins.String()
 	logrus.Debug("send:", insValue)

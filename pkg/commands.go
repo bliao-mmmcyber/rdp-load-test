@@ -94,6 +94,7 @@ func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommon
 		return nil
 	}
 	prefix := instruction.Args[2]
+	logrus.Infof("search user %s %s", session.TenantID, prefix)
 	users, e := dbAccess.QueryUsersByTenantAndUserPrefix(session.TenantID, prefix)
 	if e != nil {
 		return nil

@@ -14,15 +14,76 @@ import (
 
 const (
 	CharSet  = "UTF-8"
-	Subject  = "You are invited to join %s's RDP session"
+	Subject  = "Appaegis Screen Share"
 	HtmlBody = `
 <html>
 	<head></head>
 	<body>
-		<p>
-			You are invited to join {{.Inviter}}'s RDP session'<br/>
-			Click <a href="{{.Link}}">Here</a> to join.
-		</p>
+      <div style="text-align: center;">
+		<img
+		  style="display: block; margin-left: auto; margin-right: auto;"
+		  src="https://appaegis-public.s3.amazonaws.com/logo.png"
+		  width="250"
+		  height="auto"
+		/>
+		<span style="font-size: 12pt;">
+		  <strong>
+			<span style = "color: #373757; font-family: arial, helvetica, sans-serif;">
+			</span>
+		  </strong>
+		</span>
+		<br />
+		<br />
+		<table
+		  style="
+			min-height: 200px;
+			width: 100%;
+			border-collapse: collapse;
+			background-color: #f2f5f9;
+			border-color: #ffffff;
+			border-style: none;"
+		    border="1"
+		>
+		  <tbody >
+			<tr>
+			  <td style="width: 100%; text-align: center;">
+				<span
+				  style="
+					color: #373757;
+					font-family: arial, helvetica, sans-serif;
+					font-size: 12pt;
+				">
+				  {{.Inviter}} was invite you to join a screen share. <br/>
+				  Please click the below link, then you can join the screen share.
+				</span>
+				<br />
+				<br />
+				<a
+				  href="{{.Link}}"
+				  target="_blank"
+				  style="
+					background-color: #00c2c6;
+					color: #ffffff;
+					border: 0px solid #000000;
+					border-radius: 3px;
+					box-sizing: border-box;
+					font-family: arial, helvetica, sans-serif;
+					font-size: 13px;
+					font-weight: bold;
+					line-height: 40px;
+					padding: 12px 24px;
+					text-align: center;
+					text-decoration: none;
+					text-transform: uppercase;
+					vertical-align: middle;"
+				  rel="noopener"
+				>Join</a>
+			  </td>
+			</tr>
+		  </tbody>
+		</table>
+		<br />
+	  </div>
 	</body>
 </html>
 `

@@ -31,8 +31,18 @@ type RdpClient struct {
 type RdpSessionRoom struct {
 	SessionId       string
 	RdpConnectionId string
+	AllowSharing    bool
 	Users           map[string]*RdpClient
 	Invitees        map[string]string
+}
+
+func (r *RdpSessionRoom) GetRdpClient(userId string) *RdpClient {
+	for _, u := range r.Users {
+		if u.UserId == userId {
+			return u
+		}
+	}
+	return nil
 }
 
 func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
@@ -110,7 +120,7 @@ func GetRdpSessionRoom(sessionId string) (*RdpSessionRoom, bool) {
 	return result, ok
 }
 
-func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string) *RdpClient {
+func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool) *RdpClient {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -119,6 +129,7 @@ func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, conne
 		Users:           make(map[string]*RdpClient),
 		RdpConnectionId: connectionId,
 		Invitees:        make(map[string]string),
+		AllowSharing:    allowSharing,
 	}
 	room.Invitees[user] = "admin,keyboard,mouse"
 	room.Users[user] = &RdpClient{
@@ -188,7 +199,8 @@ func LeaveRoom(sessionId, user string) error {
 			delete(rdpRooms, sessionId)
 			SessionDataStore.Delete(sessionId)
 			e := dbAccess.DeleteRdpSession(sessionId)
-			logrus.Infof("remove session data %s, remaining size %d, e %v", sessionId, len(SessionDataStore.Data), e)
+			e2 := kv.Delete(fmt.Sprintf("guac-%s", sessionId))
+			logrus.Infof("remove session data %s, remaining size %d, e %v, e2 %v", sessionId, len(SessionDataStore.Data), e, e2)
 		}
 	} else {
 		return fmt.Errorf("cannot find rdp room by id %s", sessionId)
