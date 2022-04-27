@@ -47,7 +47,7 @@ func (r *RdpSessionRoom) GetRdpClient(userId string) *RdpClient {
 
 func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
 	ins := &Instruction{
-		Opcode: SESSION_SHARE_OP,
+		Opcode: APPAEGIS_RESP_OP,
 	}
 	args := []string{MEMBERS}
 	room, ok := rdpRooms[r.SessionId]
@@ -113,6 +113,17 @@ func (r *RdpSessionRoom) join(user string, ws WriterCloser, permissions string) 
 
 func (r *RdpSessionRoom) leave(user string) {
 	delete(r.Users, user)
+}
+
+func (r *RdpSessionRoom) RemoveUser(user string) {
+	delete(r.Invitees, user)
+	if u, ok := r.Users[user]; ok {
+		e := u.Websocket.Close()
+		if e != nil {
+			logrus.Errorf("close client %s ws failed %v", user, e)
+		}
+		delete(r.Users, user)
+	}
 }
 
 func GetRdpSessionRoom(sessionId string) (*RdpSessionRoom, bool) {

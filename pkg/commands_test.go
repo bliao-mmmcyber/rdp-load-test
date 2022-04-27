@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/wwt/guac/mocks"
 )
 
-func TestSharingCommand(t *testing.T) {
+func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	svc := new(mocks.MailService)
 	mailService = svc
 	svc.On("SendInvitation", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -32,11 +33,23 @@ func TestSharingCommand(t *testing.T) {
 	assert.Equal(t, result.Args[2], "200", "incorrect status")
 	assert.NotEmpty(t, result.Args[3], "url should not be empty")
 
+	ins := NewInstruction(APPAEGIS_OP, REMOVE_SHARE, "requestId", "kchung@appaegis.com")
+	c, e = GetCommandByOp(ins)
+	if e != nil {
+		t.Fatal("cannot get remove-share command")
+	}
+	db.On("RemoveInvitee", mock.Anything, mock.Anything).Return(nil)
+	result = c.Exec(ins, &SessionCommonData{
+		RdpSessionId: "123",
+	}, &RdpClient{})
+	logrus.Infof("result %s", result.String())
+	assert.Equal(t, result.Args[2], "200", "incorrect result status")
+
 	delete(rdpRooms, "123")
 }
 
 func TestSearchUserCommand(t *testing.T) {
-	i := NewInstruction(SESSION_SHARE_OP, SEARCH_USER, "requestId", "kchung")
+	i := NewInstruction(APPAEGIS_OP, SEARCH_USER, "requestId", "kchung")
 	db := new(mocks.DbAccess)
 	dbAccess = db
 	user := dynamodbcli.UserEntry{
@@ -55,7 +68,7 @@ func TestSearchUserCommand(t *testing.T) {
 
 func TestSetPermissionsCommand(t *testing.T) {
 	i := &Instruction{
-		Args: []string{SET_PERMISSONS, "user2:admin,mouse,keyboard"},
+		Args: []string{SET_PERMISSONS, "requestId", "user2:admin,mouse,keyboard"},
 	}
 	c, e := GetCommandByOp(i)
 	if e != nil {

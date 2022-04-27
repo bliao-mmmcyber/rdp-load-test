@@ -18,7 +18,6 @@ import (
 
 var (
 	appaegisCmdOpcodeIns = []byte("5.AACMD")
-	shareSessionOpIns    = []byte("15.session-sharing")
 	keyCmdOpcodeIns      = []byte("3.key")
 	mouseCmdOpcodeIns    = []byte("5.mouse")
 )
@@ -223,7 +222,7 @@ func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, clien
 			continue
 		}
 
-		if bytes.HasPrefix(data, appaegisCmdOpcodeIns) || bytes.HasPrefix(data, shareSessionOpIns) {
+		if bytes.HasPrefix(data, appaegisCmdOpcodeIns) {
 			handleAppaegisCommand(client, data, sessionDataKey)
 			continue
 		}

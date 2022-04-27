@@ -22,11 +22,6 @@ var mailService MailService = RdpMailService{}
 
 var commands = make(map[string]Command)
 
-const (
-	APPAEGIS_RESP_OP = "appaegis-resp"
-	SESSION_SHARE_OP = "session-sharing"
-)
-
 func init() {
 	commands[SHARE_SESSION] = RequestSharingCommand{}
 	commands[DLP_DOWNLOAD] = DlpDownloadCommand{}
@@ -35,6 +30,7 @@ func init() {
 	commands[DOWNLOAD_CHECK] = DownloadCheckCommand{}
 	commands[SET_PERMISSONS] = SetPermissions{}
 	commands[SEARCH_USER] = SearchUserCommand{}
+	commands[REMOVE_SHARE] = RemoveShareCommand{}
 }
 
 func GetCommandByOp(instruction *Instruction) (Command, error) {
@@ -52,6 +48,30 @@ func GetSharingUrl(sessionId string) string {
 	return url
 }
 
+type RemoveShareCommand struct{}
+
+func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+	room, ok := GetRdpSessionRoom(session.RdpSessionId)
+	if len(instruction.Args) < 3 || !ok {
+		logrus.Errorf("args len %d, room exist %v", len(instruction.Args), ok)
+		return NewInstruction(APPAEGIS_RESP_OP, REMOVE_SHARE_ACK, "500")
+	}
+	requestId := instruction.Args[1]
+	var err error
+	for _, u := range instruction.Args[2:] {
+		room.RemoveUser(u)
+		if e := dbAccess.RemoveInvitee(session.RdpSessionId, u); e != nil {
+			err = e
+			logrus.Errorf("remove invitee failed %s %s, e %v", session.RdpSessionId, u, e)
+		}
+	}
+	status := "200"
+	if err != nil {
+		status = "500"
+	}
+	return NewInstruction(APPAEGIS_RESP_OP, REMOVE_SHARE_ACK, requestId, status)
+}
+
 type SetPermissions struct{}
 
 func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
@@ -63,7 +83,7 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 	if !ok {
 		return nil
 	}
-	for _, str := range instruction.Args[1:] {
+	for _, str := range instruction.Args[2:] {
 		userPermission := strings.Split(str, ":")
 		if len(userPermission) != 2 {
 			logrus.Errorf("incorrect permission format %s", str)
@@ -99,7 +119,7 @@ func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommon
 	if e != nil {
 		return nil
 	}
-	ins := NewInstruction(SESSION_SHARE_OP, SEARCH_USER_ACK, instruction.Args[1])
+	ins := NewInstruction(APPAEGIS_RESP_OP, SEARCH_USER_ACK, instruction.Args[1])
 	for _, u := range users {
 		ins.Args = append(ins.Args, u.ID)
 	}
@@ -122,6 +142,7 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 		if i+1 < len(instruction.Args) {
 			permissions = instruction.Args[i+1]
 		}
+		logrus.Infof("add sharing %s %s", invitee, permissions)
 		e := AddSharingUser(session.RdpSessionId, invitee, permissions)
 		if e != nil {
 			logrus.Errorf("add invitee to room failed %v", e)
@@ -137,7 +158,7 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 		}
 	}
 
-	resp := NewInstruction(SESSION_SHARE_OP, "share-session-ack", instruction.Args[1], status, url, "")
+	resp := NewInstruction(APPAEGIS_RESP_OP, SHARE_SESSION_ACK, instruction.Args[1], status, url, "")
 	return resp
 }
 

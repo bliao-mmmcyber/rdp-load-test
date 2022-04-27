@@ -73,6 +73,20 @@ func (_m *DbAccess) QueryUsersByTenantAndUserPrefix(tenantId string, userPrefix 
 	return r0, r1
 }
 
+// RemoveInvitee provides a mock function with given fields: sessionId, user
+func (_m *DbAccess) RemoveInvitee(sessionId string, user string) error {
+	ret := _m.Called(sessionId, user)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(sessionId, user)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveActiveRdpSession provides a mock function with given fields: session
 func (_m *DbAccess) SaveActiveRdpSession(session *dynamodbcli.ActiveRdpSession) error {
 	ret := _m.Called(session)

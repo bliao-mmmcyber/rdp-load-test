@@ -10,6 +10,7 @@ type DbAccess interface {
 	DeleteRdpSession(sessionId string) error
 	GetInviteeByUserIdAndSessionId(userId, sessionId string) (*dynamodbcli.ActiveRdpSessionInvitee, error)
 	QueryUsersByTenantAndUserPrefix(tenantId, userPrefix string) ([]dynamodbcli.UserEntry, error)
+	RemoveInvitee(sessionId, user string) error
 }
 
 type DynamodbAccess struct{}
@@ -32,4 +33,8 @@ func (d DynamodbAccess) GetInviteeByUserIdAndSessionId(userId, sessionId string)
 
 func (d DynamodbAccess) QueryUsersByTenantAndUserPrefix(tenantId, userPrefix string) ([]dynamodbcli.UserEntry, error) {
 	return dynamodbcli.Singleon().QueryUsersByTenantAndUserPrefix(tenantId, userPrefix)
+}
+
+func (d DynamodbAccess) RemoveInvitee(sessionId, user string) error {
+	return dynamodbcli.RemoveInvitee(sessionId, user)
 }

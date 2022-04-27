@@ -1,7 +1,6 @@
 package guac
 
 import (
-	"fmt"
 	"strings"
 	"text/template"
 
@@ -133,7 +132,7 @@ func (s RdpMailService) SendInvitation(to string, inviter string, link string) e
 		Message: &ses.Message{
 			Subject: &ses.Content{
 				Charset: aws.String(CharSet),
-				Data:    aws.String(fmt.Sprintf(Subject, inviter)),
+				Data:    aws.String(Subject),
 			},
 			Body: &ses.Body{
 				Html: &ses.Content{
