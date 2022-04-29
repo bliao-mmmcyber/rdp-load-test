@@ -126,8 +126,8 @@ func requestPolicy(appID string, userID string) []string {
 	}
 	resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", config.GetPolicyManagementEndPoint(), requestParam.Encode()))
 	if _err != nil {
-		logrus.Fatalf("get policy failed, %s", _err.Error())
-		return nil
+		logrus.Errorf("get policy failed, %s", _err.Error())
+		return []string{}
 	}
 	defer resp.Body.Close()
 
@@ -176,8 +176,13 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	delete(config.Parameters, "role_ids")
 
 	appauthz, err := request.Cookie("appauthz")
+	idtoken := ""
 	if err == nil {
-		config.Parameters["gateway-password"] = appauthz.Value
+		idtoken = appauthz.Value
+		config.Parameters["gateway-password"] = idtoken
+	} else {
+		logrus.Errorf("appauthz cookie not found")
+		// return nil, fmt.Errorf("appauthz cookie not found")
 	}
 
 	// AC-938: alert rules
@@ -206,6 +211,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	s3key := time.Now().Format(time.RFC3339)
 	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 	enableRecording := false
+	sessionDataKey := sessionId.String()
 
 	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, enableRecording)
 	if app != nil && app.EnableRecording {
@@ -214,19 +220,10 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		config.Parameters["create-recording-path"] = "true"
 		config.Parameters["recording-include-keys"] = "true"
 		config.Parameters["recording-name"] = loggingInfo.GetRecordingFileName()
-
-		logging.Log(logging.Action{
-			AppTag:    "guac.connect",
-			UserEmail: userId,
-			AppID:     appId,
-			RoleIDs:   strings.Split(roleIds, ","),
-			ClientIP:  strings.Split(query.Get("clientIp"), ":")[0],
-		})
 	}
 
 	alertRulesString := query.Get("alertRules")
 	shareSessionID := query.Get("shareSessionId")
-	sessionDataKey := sessionId.String()
 	session := &guac.SessionCommonData{}
 	if shareSessionID == "" { // launch a new rdp session
 		logrus.Infof("sessionId %s", sessionDataKey)
@@ -234,13 +231,14 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.AppID = appId
 		session.Email = userId
 		session.RoleIDs = strings.Split(roleIds, ",")
-		session.IDToken = appauthz.Value
+		session.IDToken = idtoken
 		session.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
 		session.ClientIP = clientIp
 		session.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
 		session.AppName = appName
 		session.RuleIDs = make(map[string][]string)
 		session.Rules = make(map[string]*guac.AlertRuleData)
+		session.RdpSessionId = sessionDataKey
 
 		alertRules := []guac.AlertRuleData{}
 		if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {
@@ -257,7 +255,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 			}
 		}
 		guac.SessionDataStore.Set(sessionDataKey, session)
-		logrus.Printf("session data stored %s %v", sessionDataKey, session)
 	} else { // join a existing rdp session
 		sessionData := guac.SessionDataStore.Get(shareSessionID)
 		room, ok := guac.GetRdpSessionRoom(shareSessionID)
@@ -339,7 +336,7 @@ func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
 				c.Close()
 				break
 			} else {
-				logrus.Infof("received msg %#v", request)
+				//  logrus.Infof("received msg %#v", request)
 				for _, event := range request.Events {
 					for _, id := range event.IDs {
 						_ = chManagement.BroadCast(id, 1)

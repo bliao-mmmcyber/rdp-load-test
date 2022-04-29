@@ -1,6 +1,7 @@
 package guac
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -8,12 +9,22 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/lib/logging"
 )
 
 var (
 	lock     sync.Mutex
 	rdpRooms = make(map[string]*RdpSessionRoom)
 )
+
+type UserList struct {
+	Users []User `json:"users"`
+}
+type User struct {
+	UserId     string `json:"userId"`
+	Permission string `json:"permission"`
+	Status     int    `json:"status"`
+}
 
 type WriterCloser interface {
 	io.Closer
@@ -23,37 +34,56 @@ type WriterCloser interface {
 type RdpClient struct {
 	Websocket WriterCloser
 	UserId    string
-	Admin     bool
+	Role      string // admin or cohost or viewer
 	Mouse     bool
 	Keyboard  bool
 }
 
+func (c *RdpClient) SendPermission() {
+	var permissions []string
+	if c.Keyboard {
+		permissions = append(permissions, "keyboard")
+	}
+	if c.Mouse {
+		permissions = append(permissions, "mouse")
+	}
+	permissions = append(permissions, c.Role)
+	permissionStr := strings.Join(permissions, ",")
+	ins := NewInstruction(USER_PERMISSON, []string{permissionStr}...)
+	e := c.Websocket.WriteMessage(websocket.TextMessage, ins.Byte())
+	if e != nil {
+		logrus.Errorf("write user-permission command to client failed %v", e)
+	}
+}
+
 type RdpSessionRoom struct {
+	Creator         string
+	AppId           string
+	TenantId        string
 	SessionId       string
 	RdpConnectionId string
 	AllowSharing    bool
 	Users           map[string]*RdpClient
 	Invitees        map[string]string
+	lock            *sync.Mutex
 }
 
 func (r *RdpSessionRoom) GetRdpClient(userId string) *RdpClient {
-	for _, u := range r.Users {
-		if u.UserId == userId {
-			return u
-		}
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	if u, ok := r.Users[userId]; ok {
+		return u
 	}
 	return nil
 }
 
 func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
-	ins := &Instruction{
-		Opcode: APPAEGIS_RESP_OP,
-	}
-	args := []string{MEMBERS}
 	room, ok := rdpRooms[r.SessionId]
 	if !ok {
-		return ins
+		return NewInstruction(MEMBERS)
 	}
+	var users []User
 	for _, u := range room.Users {
 		var permissions []string
 		if u.Mouse {
@@ -62,18 +92,29 @@ func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
 		if u.Keyboard {
 			permissions = append(permissions, "keyboard")
 		}
-		if u.Admin {
+		if u.Role != ROLE_VIEWER {
 			permissions = append(permissions, "admin")
 		}
-		args = append(args, fmt.Sprintf("%s:%s:1", u.UserId, strings.Join(permissions, ",")))
+		users = append(users, User{
+			UserId:     u.UserId,
+			Permission: strings.Join(permissions, ","),
+			Status:     1,
+		})
 	}
 	for u, permission := range room.Invitees {
 		if _, ok := room.Users[u]; !ok {
-			args = append(args, fmt.Sprintf("%s:%s:0", u, permission))
+			users = append(users, User{
+				UserId:     u,
+				Permission: permission,
+				Status:     0,
+			})
 		}
 	}
-	ins.Args = args
-	return ins
+	data, e := json.Marshal(users)
+	if e != nil {
+		logrus.Infof("marshall failed %v", e)
+	}
+	return NewInstruction(MEMBERS, string(data))
 }
 
 func AuthShare(userId, shareSessionId string) (bool, string) {
@@ -100,10 +141,17 @@ func AuthShare(userId, shareSessionId string) (bool, string) {
 }
 
 func (r *RdpSessionRoom) join(user string, ws WriterCloser, permissions string) *RdpClient {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	role := ROLE_VIEWER
+	if strings.Contains(permissions, "admin") {
+		role = ROLE_CO_HOST
+	}
 	r.Users[user] = &RdpClient{
 		UserId:    user,
 		Websocket: ws,
-		Admin:     strings.Contains(permissions, "admin"),
+		Role:      role,
 		Mouse:     strings.Contains(permissions, "mouse"),
 		Keyboard:  strings.Contains(permissions, "keyboard"),
 	}
@@ -112,10 +160,16 @@ func (r *RdpSessionRoom) join(user string, ws WriterCloser, permissions string) 
 }
 
 func (r *RdpSessionRoom) leave(user string) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	delete(r.Users, user)
 }
 
 func (r *RdpSessionRoom) RemoveUser(user string) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	delete(r.Invitees, user)
 	if u, ok := r.Users[user]; ok {
 		e := u.Websocket.Close()
@@ -126,44 +180,52 @@ func (r *RdpSessionRoom) RemoveUser(user string) {
 	}
 }
 
+func (r *RdpSessionRoom) AddInvitee(user, permissions string) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.Invitees[user] = permissions
+}
+
 func GetRdpSessionRoom(sessionId string) (*RdpSessionRoom, bool) {
 	result, ok := rdpRooms[sessionId]
 	return result, ok
 }
 
-func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool) *RdpClient {
+func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool, appId, tenantId string) *RdpClient {
 	lock.Lock()
 	defer lock.Unlock()
 
 	room := &RdpSessionRoom{
 		SessionId:       sessionId,
+		AppId:           appId,
+		TenantId:        tenantId,
 		Users:           make(map[string]*RdpClient),
 		RdpConnectionId: connectionId,
 		Invitees:        make(map[string]string),
 		AllowSharing:    allowSharing,
+		lock:            &sync.Mutex{},
 	}
 	room.Invitees[user] = "admin,keyboard,mouse"
 	room.Users[user] = &RdpClient{
 		Websocket: closer,
 		UserId:    user,
-		Admin:     true,
+		Role:      ROLE_ADMIN,
 		Mouse:     true,
 		Keyboard:  true,
 	}
 	rdpRooms[sessionId] = room
+	logrus.Infof("add rdp room, session id %s", sessionId)
 	return room.Users[user]
 }
 
-func AddSharingUser(sessionId string, user string, permissions string) error {
+func AddInvitee(sessionId string, user string, permissions string) error {
 	lock.Lock()
 	defer lock.Unlock()
-
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
-		room.Invitees[user] = permissions
+		room.AddInvitee(user, permissions)
 		return nil
-	} else {
-		return fmt.Errorf("cannot find rdp room by id %s", sessionId)
 	}
+	return fmt.Errorf("room with session id %s not found", sessionId)
 }
 
 func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string) (*RdpClient, error) {
@@ -171,33 +233,30 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 	defer lock.Unlock()
 
 	var result *RdpClient
-	if room, ok := rdpRooms[sessionId]; ok {
+	if room, ok := GetRdpSessionRoom(sessionId); ok {
 		result = room.join(user, ws, permissions)
+		ins := room.GetMembersInstruction()
+		for _, u := range rdpRooms[sessionId].Users {
+			if err := u.Websocket.WriteMessage(websocket.TextMessage, ins.Byte()); err != nil {
+				logrus.Errorf("send message %s to user %s failed", ins.String(), u.UserId)
+			}
+		}
+		return result, nil
 	} else {
 		return nil, fmt.Errorf("cannot find rdp room by id %s", sessionId)
 	}
-
-	r := rdpRooms[sessionId]
-	ins := r.GetMembersInstruction()
-	for _, u := range rdpRooms[sessionId].Users {
-		if err := u.Websocket.WriteMessage(websocket.TextMessage, ins.Byte()); err != nil {
-			logrus.Errorf("send message %s to user %s failed", ins.String(), u.UserId)
-		}
-	}
-
-	return result, nil
 }
 
 func LeaveRoom(sessionId, user string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if room, ok := rdpRooms[sessionId]; ok {
+	if room, ok := GetRdpSessionRoom(sessionId); ok {
 		room.leave(user)
 
 		hasAdmin := false
 		for _, u := range room.Users {
-			if u.Admin {
+			if u.Role != ROLE_VIEWER {
 				hasAdmin = true
 			}
 		}
@@ -212,6 +271,14 @@ func LeaveRoom(sessionId, user string) error {
 			e := dbAccess.DeleteRdpSession(sessionId)
 			e2 := kv.Delete(fmt.Sprintf("guac-%s", sessionId))
 			logrus.Infof("remove session data %s, remaining size %d, e %v, e2 %v", sessionId, len(SessionDataStore.Data), e, e2)
+
+			logging.Log(logging.Action{
+				AppTag:       "guac.exit",
+				RdpSessionId: sessionId,
+				UserEmail:    room.Creator,
+				AppID:        room.AppId,
+				TenantID:     room.TenantId,
+			})
 		}
 	} else {
 		return fmt.Errorf("cannot find rdp room by id %s", sessionId)

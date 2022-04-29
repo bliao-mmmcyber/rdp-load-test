@@ -19,7 +19,7 @@ func TestAuthShare(t *testing.T) {
 	assert.False(t, result)
 
 	// normal case
-	NewRdpSessionRoom("sessionId", "user1", nil, "connectionId", true)
+	NewRdpSessionRoom("sessionId", "user1", nil, "connectionId", true, "appId", "tenantId")
 	db.On("GetInviteeByUserIdAndSessionId", "user3", "sessionId").Return(&dynamodbcli.ActiveRdpSessionInvitee{
 		Permissions: "mouse",
 	}, nil)
@@ -35,7 +35,7 @@ func TestSingleAdmin(t *testing.T) {
 	db := new(mocks.DbAccess)
 	dbAccess = db
 
-	NewRdpSessionRoom("singleAdmin", "user1", nil, "", true)
+	NewRdpSessionRoom("singleAdmin", "user1", nil, "", true, "appId", "tenantId")
 	db.On("DeleteRdpSession", mock.Anything).Return(nil)
 	_ = LeaveRoom("singleAdmin", "user1")
 	assert.Equal(t, 0, len(rdpRooms))
@@ -44,7 +44,7 @@ func TestSingleAdmin(t *testing.T) {
 func TestTwoAdmin(t *testing.T) {
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	NewRdpSessionRoom("1", "user1", ws1, "", true)
+	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", "tenantId")
 
 	ws := new(mocks.WriterCloser)
 	ws.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
@@ -58,7 +58,7 @@ func TestTwoAdmin(t *testing.T) {
 func TestSingleAdminLeave(t *testing.T) {
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	NewRdpSessionRoom("1", "user1", ws1, "", true)
+	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", "tenantId")
 
 	ws := new(mocks.WriterCloser)
 	ws.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
@@ -73,7 +73,7 @@ func TestSingleAdminLeave(t *testing.T) {
 func TestNormalUserLeave(t *testing.T) {
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	NewRdpSessionRoom("1", "user1", ws1, "", true)
+	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", "tenantId")
 
 	ws2 := new(mocks.WriterCloser)
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
@@ -82,4 +82,18 @@ func TestNormalUserLeave(t *testing.T) {
 	_ = LeaveRoom("1", "user2")
 	assert.Equal(t, 1, len(rdpRooms))
 	assert.Equal(t, 1, len(rdpRooms["1"].Users))
+}
+
+func TestAddSharing(t *testing.T) {
+	sessionId := "testaddsharing"
+	NewRdpSessionRoom(sessionId, "user1", nil, "", true, "", "")
+	e := AddInvitee(sessionId, "user2", "")
+	if e != nil {
+		t.Errorf("add sharing user failed %v", e)
+	}
+	r, ok := GetRdpSessionRoom(sessionId)
+	if !ok || len(r.Invitees) != 2 {
+		t.Error(e)
+	}
+	delete(rdpRooms, sessionId)
 }

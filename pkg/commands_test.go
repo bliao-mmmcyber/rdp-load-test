@@ -1,6 +1,7 @@
 package guac
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
@@ -15,10 +16,10 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	mailService = svc
 	svc.On("SendInvitation", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	_ = NewRdpSessionRoom("123", "test@appaegis.com", nil, "connectionId", true)
+	_ = NewRdpSessionRoom("123", "test@appaegis.com", nil, "connectionId", true, "appId", "tenantId")
 
 	i := Instruction{
-		Args: []string{SHARE_SESSION, "requestId", "kchung@appaegis.com", "mouse,keyboard,admin"},
+		Args: []string{"requestId", SHARE_SESSION, "kchung@appaegis.com:mouse,keyboard,admin"},
 	}
 	c, e := GetCommandByOp(&i)
 	if e != nil {
@@ -30,10 +31,13 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	db.On("ShareRdpSession", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	result := c.Exec(&i, &SessionCommonData{RdpSessionId: "123"}, &RdpClient{})
-	assert.Equal(t, result.Args[2], "200", "incorrect status")
-	assert.NotEmpty(t, result.Args[3], "url should not be empty")
+	m := make(map[string]string)
+	_ = json.Unmarshal([]byte(result.Args[1]), &m)
 
-	ins := NewInstruction(APPAEGIS_OP, REMOVE_SHARE, "requestId", "kchung@appaegis.com")
+	assert.Equal(t, m["status"], "200", "incorrect status")
+	assert.NotEmpty(t, m["url"], "url should not be empty")
+
+	ins := NewInstruction(APPAEGIS_OP, "requestId", REMOVE_SHARE, "kchung@appaegis.com")
 	c, e = GetCommandByOp(ins)
 	if e != nil {
 		t.Fatal("cannot get remove-share command")
@@ -43,13 +47,14 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 		RdpSessionId: "123",
 	}, &RdpClient{})
 	logrus.Infof("result %s", result.String())
-	assert.Equal(t, result.Args[2], "200", "incorrect result status")
+	_ = json.Unmarshal([]byte(result.Args[1]), &m)
+	assert.Equal(t, m["status"], "200", "incorrect result status")
 
 	delete(rdpRooms, "123")
 }
 
 func TestSearchUserCommand(t *testing.T) {
-	i := NewInstruction(APPAEGIS_OP, SEARCH_USER, "requestId", "kchung")
+	i := NewInstruction(APPAEGIS_OP, "requestId", SEARCH_USER, "kchung")
 	db := new(mocks.DbAccess)
 	dbAccess = db
 	user := dynamodbcli.UserEntry{
@@ -61,14 +66,13 @@ func TestSearchUserCommand(t *testing.T) {
 		t.Fatal("cannot get share-session command")
 	}
 	result := c.Exec(i, &SessionCommonData{RdpSessionId: "123", TenantID: "tenantId"}, &RdpClient{})
-	assert.Equal(t, result.Args[0], SEARCH_USER_ACK)
-	assert.Equal(t, result.Args[1], "requestId")
-	assert.Equal(t, result.Args[2], "kchung@appaegis.com")
+	assert.Equal(t, result.Args[0], "requestId")
+	assert.Equal(t, result.Args[1], "kchung@appaegis.com")
 }
 
 func TestSetPermissionsCommand(t *testing.T) {
 	i := &Instruction{
-		Args: []string{SET_PERMISSONS, "requestId", "user2:admin,mouse,keyboard"},
+		Args: []string{"requestId", SET_PERMISSONS, "user2:admin,mouse,keyboard"},
 	}
 	c, e := GetCommandByOp(i)
 	if e != nil {
@@ -79,7 +83,7 @@ func TestSetPermissionsCommand(t *testing.T) {
 
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	NewRdpSessionRoom("1", "user1", ws1, "", true)
+	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", "tenantId")
 
 	ws2 := new(mocks.WriterCloser)
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
@@ -90,11 +94,10 @@ func TestSetPermissionsCommand(t *testing.T) {
 	}
 	user2 := r.Users["user2"]
 
-	result := c.Exec(i, &SessionCommonData{RdpSessionId: "1"}, &RdpClient{Admin: true})
-	assert.True(t, user2.Admin)
+	_ = c.Exec(i, &SessionCommonData{RdpSessionId: "1"}, &RdpClient{Role: ROLE_CO_HOST})
+	assert.Equal(t, user2.Role, ROLE_CO_HOST)
 	assert.True(t, user2.Keyboard)
 	assert.True(t, user2.Mouse)
-	assert.Nil(t, result)
 
 	delete(rdpRooms, "1")
 }

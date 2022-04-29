@@ -164,6 +164,16 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var client *RdpClient
 	if shareSessionId == "" { // rdp session owner connected
+		logging.Log(logging.Action{
+			AppTag:       "guac.connect",
+			RdpSessionId: sessionId,
+			UserEmail:    userId,
+			AppID:        appId,
+			TenantID:     tunnel.GetLoggingInfo().TenantId,
+			RoleIDs:      strings.Split(query.Get("roleIds"), ","),
+			ClientIP:     strings.Split(query.Get("clientIp"), ":")[0],
+		})
+
 		e := dbAccess.SaveActiveRdpSession(&dynamodbcli.ActiveRdpSession{
 			Id:        sessionId,
 			Owner:     userId,
@@ -177,7 +187,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if e != nil {
 			logrus.Errorf("put to cache failed %v", e)
 		}
-		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing)
+		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo().TenantId)
 	} else {
 		sessionId = shareSessionId
 		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
@@ -185,10 +195,22 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("join to room failed %s", sessionId)
 			return
 		}
+		if room, ok := GetRdpSessionRoom(sessionId); ok {
+			logging.Log(logging.Action{
+				AppTag:       "guac.join",
+				RdpSessionId: sessionId,
+				UserEmail:    userId,
+				AppID:        room.AppId,
+				TenantID:     room.TenantId,
+				ClientIP:     strings.Split(query.Get("clientIp"), ":")[0],
+			})
+		}
 	}
 
 	IncRdpCount(tunnel.GetLoggingInfo().TenantId)
 	defer DecRdpCount(tunnel.GetLoggingInfo().TenantId)
+
+	client.SendPermission()
 
 	go wsToGuacd(ws, writer, sessionId, client)
 	guacdToWs(ws, reader)
@@ -340,20 +362,21 @@ func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string)
 
 	// result := J{} //nolint
 	var result *Instruction
-	op := instruction.Args[0]
-	requestID := instruction.Args[1]
+	op := instruction.Args[1]
+	requestID := instruction.Args[0]
 	logrus.Printf("op: %s, requestID: %s", op, requestID)
 	command, e := GetCommandByOp(instruction)
 	if e == nil {
 		result = command.Exec(instruction, ses, client)
 	} else {
 		logging.Log(logging.Action{
-			AppTag:    "guac." + strings.ToLower(op),
-			TenantID:  ses.TenantID,
-			UserEmail: ses.Email,
-			AppID:     ses.AppID,
-			RoleIDs:   ses.RoleIDs,
-			ClientIP:  ses.ClientIP,
+			AppTag:       "guac." + strings.ToLower(op),
+			TenantID:     ses.TenantID,
+			UserEmail:    ses.Email,
+			AppID:        ses.AppID,
+			RoleIDs:      ses.RoleIDs,
+			ClientIP:     ses.ClientIP,
+			RdpSessionId: ses.RdpSessionId,
 		})
 		j := J{
 			"ng": 1,

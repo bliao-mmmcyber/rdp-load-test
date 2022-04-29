@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/appaegis/golang-common/pkg/config"
+	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/appaegis/golang-common/pkg/httpclient"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -31,32 +32,51 @@ func init() {
 	commands[SET_PERMISSONS] = SetPermissions{}
 	commands[SEARCH_USER] = SearchUserCommand{}
 	commands[REMOVE_SHARE] = RemoveShareCommand{}
+	commands[CHECK_USER] = CheckUserCommand{}
 }
 
 func GetCommandByOp(instruction *Instruction) (Command, error) {
 	if len(instruction.Args) <= 0 {
 		return nil, fmt.Errorf("invalid instruction")
 	}
-	if c, ok := commands[instruction.Args[0]]; ok {
+	if c, ok := commands[instruction.Args[1]]; ok {
 		return c, nil
 	}
 	return nil, fmt.Errorf("invalid op %s", instruction.Args[0])
 }
 
 func GetSharingUrl(sessionId string) string {
-	url := fmt.Sprintf("https://%s/share_session?sessionId=%s", config.GetPortalHostName(), sessionId)
+	url := fmt.Sprintf("https://%s/share_session?shareSessionId=%s", config.GetPortalHostName(), sessionId)
 	return url
+}
+
+type CheckUserCommand struct{}
+
+func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+	userId := instruction.Args[2]
+	u := dynamodbcli.Singleon().QueryUserById(userId)
+	status := "200"
+	if u == nil || u.ID == "" {
+		status = "404"
+	}
+	payload := make(map[string]string)
+	payload["status"] = status
+	data, e := json.Marshal(payload)
+	if e != nil {
+		logrus.Errorf("marshall failed %v", e)
+	}
+	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 }
 
 type RemoveShareCommand struct{}
 
 func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
 	room, ok := GetRdpSessionRoom(session.RdpSessionId)
+	requestId := instruction.Args[0]
 	if len(instruction.Args) < 3 || !ok {
 		logrus.Errorf("args len %d, room exist %v", len(instruction.Args), ok)
-		return NewInstruction(APPAEGIS_RESP_OP, REMOVE_SHARE_ACK, "500")
+		return NewInstruction(APPAEGIS_RESP_OP, requestId, "500")
 	}
-	requestId := instruction.Args[1]
 	var err error
 	for _, u := range instruction.Args[2:] {
 		room.RemoveUser(u)
@@ -69,14 +89,18 @@ func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommo
 	if err != nil {
 		status = "500"
 	}
-	return NewInstruction(APPAEGIS_RESP_OP, REMOVE_SHARE_ACK, requestId, status)
+	payload := map[string]string{
+		"status": status,
+	}
+	data, _ := json.Marshal(payload)
+	return NewInstruction(APPAEGIS_RESP_OP, requestId, string(data))
 }
 
 type SetPermissions struct{}
 
 func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
-	if !client.Admin {
-		logrus.Errorf("user %s didn't allow to set permissions", client.UserId)
+	if client.Role == ROLE_VIEWER {
+		logrus.Errorf("user %s didn't have permission to set permissions", client.UserId)
 		return nil
 	}
 	room, ok := GetRdpSessionRoom(session.RdpSessionId)
@@ -90,8 +114,12 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 			continue
 		}
 		for _, u := range room.Users {
+			role := ROLE_VIEWER
+			if strings.Contains(userPermission[1], "admin") {
+				role = ROLE_CO_HOST
+			}
 			if u.UserId == userPermission[0] {
-				u.Admin = strings.Contains(userPermission[1], "admin")
+				u.Role = role
 				u.Keyboard = strings.Contains(userPermission[1], "keyboard")
 				u.Mouse = strings.Contains(userPermission[1], "mouse")
 			}
@@ -103,7 +131,11 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 			logrus.Errorf("send message %s to user %s failed", ins.String(), u.UserId)
 		}
 	}
-	return nil
+	payload := map[string]string{
+		"status": "200",
+	}
+	data, _ := json.Marshal(payload)
+	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 }
 
 type SearchUserCommand struct{}
@@ -119,7 +151,7 @@ func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommon
 	if e != nil {
 		return nil
 	}
-	ins := NewInstruction(APPAEGIS_RESP_OP, SEARCH_USER_ACK, instruction.Args[1])
+	ins := NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0])
 	for _, u := range users {
 		ins.Args = append(ins.Args, u.ID)
 	}
@@ -137,13 +169,19 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 
 	url := GetSharingUrl(session.RdpSessionId)
 	for i := 2; i < len(instruction.Args); i++ {
-		var invitee, permissions string
-		invitee = instruction.Args[i]
-		if i+1 < len(instruction.Args) {
-			permissions = instruction.Args[i+1]
+		strs := strings.Split(instruction.Args[i], ":")
+		if len(strs) != 2 {
+			logrus.Errorf("incorrect format of sharing user %s", instruction.Args[1])
+			continue
+		}
+		invitee := strs[0]
+		permissions := strs[1]
+		if invitee == "" {
+			logrus.Errorf("invitee should not be empty")
+			continue
 		}
 		logrus.Infof("add sharing %s %s", invitee, permissions)
-		e := AddSharingUser(session.RdpSessionId, invitee, permissions)
+		e := AddInvitee(session.RdpSessionId, invitee, permissions)
 		if e != nil {
 			logrus.Errorf("add invitee to room failed %v", e)
 			continue
@@ -158,7 +196,14 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 		}
 	}
 
-	resp := NewInstruction(APPAEGIS_RESP_OP, SHARE_SESSION_ACK, instruction.Args[1], status, url, "")
+	payload := make(map[string]string)
+	payload["status"] = status
+	payload["url"] = url
+	data, e := json.Marshal(payload)
+	if e != nil {
+		logrus.Errorf("error marshall %v", e)
+	}
+	resp := NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 	return resp
 }
 
@@ -191,7 +236,7 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		"ok": true,
 	}
 	data, _ := json.Marshal(result)
-	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[1], string(data))
+	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 }
 
 type DlpUploadCommand struct{}
@@ -220,7 +265,7 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 		"ok": true,
 	}
 	data, _ := json.Marshal(result)
-	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[1], string(data))
+	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 }
 
 type LogDownloadCommand struct{}
@@ -231,13 +276,14 @@ func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		fileCount = 1
 	}
 	logging.Log(logging.Action{
-		AppTag:    "guac.download",
-		TenantID:  ses.TenantID,
-		UserEmail: ses.Email,
-		AppID:     ses.AppID,
-		RoleIDs:   ses.RoleIDs,
-		FileCount: fileCount,
-		ClientIP:  ses.ClientIP,
+		AppTag:       "guac.download",
+		TenantID:     ses.TenantID,
+		UserEmail:    ses.Email,
+		AppID:        ses.AppID,
+		RoleIDs:      ses.RoleIDs,
+		FileCount:    fileCount,
+		ClientIP:     ses.ClientIP,
+		RdpSessionId: ses.RdpSessionId,
 	})
 	IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
 	result := J{
@@ -245,7 +291,7 @@ func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		"count": fileCount,
 	}
 	data, _ := json.Marshal(result)
-	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[1], string(data))
+	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 }
 
 type DownloadCheckCommand struct{}
@@ -268,5 +314,5 @@ func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonD
 		}
 	}
 	data, _ := json.Marshal(result)
-	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[1], string(data))
+	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 }
