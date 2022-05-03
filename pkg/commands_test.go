@@ -16,7 +16,9 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	mailService = svc
 	svc.On("SendInvitation", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	_ = NewRdpSessionRoom("123", "test@appaegis.com", nil, "connectionId", true, "appId", "tenantId")
+	ws1 := new(mocks.WriterCloser)
+	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
+	_ = NewRdpSessionRoom("123", "test@appaegis.com", ws1, "connectionId", true, "appId", "tenantId")
 
 	i := Instruction{
 		Args: []string{"requestId", SHARE_SESSION, "kchung@appaegis.com:mouse,keyboard,admin"},
@@ -80,6 +82,7 @@ func TestSetPermissionsCommand(t *testing.T) {
 	}
 	db := new(mocks.DbAccess)
 	dbAccess = db
+	db.On("ShareRdpSession", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)

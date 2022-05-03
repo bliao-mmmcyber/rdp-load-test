@@ -224,6 +224,10 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	alertRulesString := query.Get("alertRules")
 	shareSessionID := query.Get("shareSessionId")
+	if room, ok := guac.GetRoomByAppIdAndCreator(appId, userId); ok {
+		logrus.Infof("host user %s join to existing session %s", userId, room.SessionId)
+		shareSessionID = room.SessionId
+	}
 	session := &guac.SessionCommonData{}
 	if shareSessionID == "" { // launch a new rdp session
 		logrus.Infof("sessionId %s", sessionDataKey)

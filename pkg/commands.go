@@ -15,6 +15,8 @@ import (
 	"github.com/wwt/guac/lib/logging"
 )
 
+const INVITEE_LIMIT = 3
+
 type Command interface {
 	Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction
 }
@@ -42,7 +44,7 @@ func GetCommandByOp(instruction *Instruction) (Command, error) {
 	if c, ok := commands[instruction.Args[1]]; ok {
 		return c, nil
 	}
-	return nil, fmt.Errorf("invalid op %s", instruction.Args[0])
+	return nil, fmt.Errorf("invalid op %s", instruction.Args[1])
 }
 
 func GetSharingUrl(sessionId string) string {
@@ -59,13 +61,7 @@ func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonD
 	if u == nil || u.ID == "" {
 		status = "404"
 	}
-	payload := make(map[string]string)
-	payload["status"] = status
-	data, e := json.Marshal(payload)
-	if e != nil {
-		logrus.Errorf("marshall failed %v", e)
-	}
-	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
+	return getResponseCommand(instruction.Args[0], status)
 }
 
 type RemoveShareCommand struct{}
@@ -75,25 +71,46 @@ func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommo
 	requestId := instruction.Args[0]
 	if len(instruction.Args) < 3 || !ok {
 		logrus.Errorf("args len %d, room exist %v", len(instruction.Args), ok)
-		return NewInstruction(APPAEGIS_RESP_OP, requestId, "500")
+		return getResponseCommand(requestId, "500")
 	}
 	var err error
 	for _, u := range instruction.Args[2:] {
+		logrus.Infof("remove user %s from session %s", u, session.RdpSessionId)
+		if room.Creator == u {
+			logrus.Errorf("cannot remove rdp host user %s from session %s", u, session.RdpSessionId)
+			continue
+		}
+
+		// notify removed user
+		if removedUser, ok := room.Users[u]; ok {
+			removeCmd := NewInstruction(REMOVE_SHARE)
+			e := removedUser.Websocket.WriteMessage(websocket.TextMessage, removeCmd.Byte())
+			if e != nil {
+				logrus.Errorf("write remove-share to %s failed %v", u, e)
+			}
+		}
+
 		room.RemoveUser(u)
 		if e := dbAccess.RemoveInvitee(session.RdpSessionId, u); e != nil {
 			err = e
 			logrus.Errorf("remove invitee failed %s %s, e %v", session.RdpSessionId, u, e)
+		}
+
+	}
+	if r, ok := GetRdpSessionRoom(session.RdpSessionId); ok {
+		members := r.GetMembersInstruction()
+		for _, u := range r.Users {
+			e := u.Websocket.WriteMessage(websocket.TextMessage, members.Byte())
+			if e != nil {
+				logrus.Errorf("write members to %s failed %v", u.UserId, e)
+			}
 		}
 	}
 	status := "200"
 	if err != nil {
 		status = "500"
 	}
-	payload := map[string]string{
-		"status": status,
-	}
-	data, _ := json.Marshal(payload)
-	return NewInstruction(APPAEGIS_RESP_OP, requestId, string(data))
+	return getResponseCommand(requestId, status)
 }
 
 type SetPermissions struct{}
@@ -101,11 +118,11 @@ type SetPermissions struct{}
 func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
 	if client.Role == ROLE_VIEWER {
 		logrus.Errorf("user %s didn't have permission to set permissions", client.UserId)
-		return nil
+		return getResponseCommand(instruction.Args[0], "403")
 	}
 	room, ok := GetRdpSessionRoom(session.RdpSessionId)
 	if !ok {
-		return nil
+		return getResponseCommand(instruction.Args[0], "404")
 	}
 	for _, str := range instruction.Args[2:] {
 		userPermission := strings.Split(str, ":")
@@ -113,16 +130,30 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 			logrus.Errorf("incorrect permission format %s", str)
 			continue
 		}
+		user := userPermission[0]
+		permission := userPermission[1]
+		logrus.Infof("set permissions %s for user %s", permission, user)
 		for _, u := range room.Users {
-			role := ROLE_VIEWER
-			if strings.Contains(userPermission[1], "admin") {
-				role = ROLE_CO_HOST
-			}
-			if u.UserId == userPermission[0] {
+			if u.UserId == user {
+				role := ROLE_VIEWER
+				if strings.Contains(permission, "admin") {
+					role = ROLE_CO_HOST
+				}
 				u.Role = role
-				u.Keyboard = strings.Contains(userPermission[1], "keyboard")
-				u.Mouse = strings.Contains(userPermission[1], "mouse")
+				u.Keyboard = strings.Contains(permission, "keyboard")
+				u.Mouse = strings.Contains(permission, "mouse")
 			}
+		}
+
+		for u := range room.Invitees {
+			if u == user {
+				logrus.Infof("update permission for invitee %s to %s", user, permission)
+				room.Invitees[user] = permission
+			}
+		}
+		e := dbAccess.ShareRdpSession(user, permission, room.SessionId)
+		if e != nil {
+			logrus.Errorf("update permission for %s failed %v", user, e)
 		}
 	}
 	ins := room.GetMembersInstruction()
@@ -131,11 +162,8 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 			logrus.Errorf("send message %s to user %s failed", ins.String(), u.UserId)
 		}
 	}
-	payload := map[string]string{
-		"status": "200",
-	}
-	data, _ := json.Marshal(payload)
-	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
+
+	return getResponseCommand(instruction.Args[0], "200")
 }
 
 type SearchUserCommand struct{}
@@ -161,11 +189,8 @@ func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommon
 type RequestSharingCommand struct{}
 
 func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
-	var e error
+	var err error
 	status := "200"
-	if e != nil {
-		status = "500"
-	}
 
 	url := GetSharingUrl(session.RdpSessionId)
 	for i := 2; i < len(instruction.Args); i++ {
@@ -184,18 +209,33 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 		e := AddInvitee(session.RdpSessionId, invitee, permissions)
 		if e != nil {
 			logrus.Errorf("add invitee to room failed %v", e)
+			err = e
 			continue
 		}
 		e = dbAccess.ShareRdpSession(invitee, permissions, session.RdpSessionId)
 		if e != nil {
+			err = e
 			logrus.Errorf("share rdp session to user %s, permission %s, stream %s, failed %v", invitee, permissions, session.RdpSessionId, e)
 		}
 		e = mailService.SendInvitation(invitee, session.Email, url)
 		if e != nil {
+			err = e
 			logrus.Errorf("send invitation email to %s failed %v", invitee, e)
 		}
 	}
 
+	if r, ok := GetRdpSessionRoom(session.RdpSessionId); ok {
+		members := r.GetMembersInstruction()
+		for _, u := range r.Users {
+			e := u.Websocket.WriteMessage(websocket.TextMessage, members.Byte())
+			if e != nil {
+				logrus.Errorf("write members to %s failed %v", u.UserId, e)
+			}
+		}
+	}
+	if err != nil {
+		status = "500"
+	}
 	payload := make(map[string]string)
 	payload["status"] = status
 	payload["url"] = url
@@ -315,4 +355,12 @@ func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonD
 	}
 	data, _ := json.Marshal(result)
 	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
+}
+
+func getResponseCommand(requestId string, status string) *Instruction {
+	payload := map[string]string{
+		"status": status,
+	}
+	data, _ := json.Marshal(payload)
+	return NewInstruction(APPAEGIS_RESP_OP, requestId, string(data))
 }

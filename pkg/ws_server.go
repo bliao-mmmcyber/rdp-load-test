@@ -20,6 +20,7 @@ var (
 	appaegisCmdOpcodeIns = []byte("5.AACMD")
 	keyCmdOpcodeIns      = []byte("3.key")
 	mouseCmdOpcodeIns    = []byte("5.mouse")
+	sizeCmdOpcodeIns     = []byte("4.size")
 )
 
 // WebsocketServer implements a websocket-based connection to guacd.
@@ -142,8 +143,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer tunnel.ReleaseReader()
 
 	appId := query.Get("appId")
-	logrus.Debug("Query Parameters userId:", userId)
-	logrus.Debug("Query Parameters appId:", appId)
 	sharing := false
 	if s.channelManagement != nil {
 		if userId != "" && appId != "" {
@@ -248,7 +247,9 @@ func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, clien
 			handleAppaegisCommand(client, data, sessionDataKey)
 			continue
 		}
-
+		if client.Role != ROLE_ADMIN && bytes.HasPrefix(data, sizeCmdOpcodeIns) {
+			continue
+		}
 		if !client.Mouse && bytes.HasPrefix(data, mouseCmdOpcodeIns) {
 			continue
 		}
@@ -364,7 +365,6 @@ func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string)
 	var result *Instruction
 	op := instruction.Args[1]
 	requestID := instruction.Args[0]
-	logrus.Printf("op: %s, requestID: %s", op, requestID)
 	command, e := GetCommandByOp(instruction)
 	if e == nil {
 		result = command.Exec(instruction, ses, client)

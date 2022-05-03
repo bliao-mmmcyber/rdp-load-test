@@ -22,6 +22,7 @@ type UserList struct {
 }
 type User struct {
 	UserId     string `json:"userId"`
+	Role       string `json:"role"`
 	Permission string `json:"permission"`
 	Status     int    `json:"status"`
 }
@@ -97,14 +98,20 @@ func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
 		}
 		users = append(users, User{
 			UserId:     u.UserId,
+			Role:       u.Role,
 			Permission: strings.Join(permissions, ","),
 			Status:     1,
 		})
 	}
 	for u, permission := range room.Invitees {
+		role := ROLE_VIEWER
+		if strings.Contains(permission, "admin") {
+			role = ROLE_CO_HOST
+		}
 		if _, ok := room.Users[u]; !ok {
 			users = append(users, User{
 				UserId:     u,
+				Role:       role,
 				Permission: permission,
 				Status:     0,
 			})
@@ -114,7 +121,9 @@ func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
 	if e != nil {
 		logrus.Infof("marshall failed %v", e)
 	}
-	return NewInstruction(MEMBERS, string(data))
+	result := NewInstruction(MEMBERS, string(data))
+	logrus.Infof("members %s", result.String())
+	return result
 }
 
 func AuthShare(userId, shareSessionId string) (bool, string) {
@@ -222,6 +231,9 @@ func AddInvitee(sessionId string, user string, permissions string) error {
 	lock.Lock()
 	defer lock.Unlock()
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
+		if len(room.Invitees) >= INVITEE_LIMIT {
+			return fmt.Errorf("total invitee reach the limit")
+		}
 		room.AddInvitee(user, permissions)
 		return nil
 	}
@@ -261,27 +273,40 @@ func LeaveRoom(sessionId, user string) error {
 			}
 		}
 		if !hasAdmin {
-			for _, u := range room.Users {
-				logrus.Infof("disconnect user %s", u.UserId)
-				u.Websocket.Close()
-			}
-
-			delete(rdpRooms, sessionId)
-			SessionDataStore.Delete(sessionId)
-			e := dbAccess.DeleteRdpSession(sessionId)
-			e2 := kv.Delete(fmt.Sprintf("guac-%s", sessionId))
-			logrus.Infof("remove session data %s, remaining size %d, e %v, e2 %v", sessionId, len(SessionDataStore.Data), e, e2)
-
-			logging.Log(logging.Action{
-				AppTag:       "guac.exit",
-				RdpSessionId: sessionId,
-				UserEmail:    room.Creator,
-				AppID:        room.AppId,
-				TenantID:     room.TenantId,
-			})
+			closeRoom(room)
 		}
 	} else {
 		return fmt.Errorf("cannot find rdp room by id %s", sessionId)
 	}
 	return nil
+}
+
+func GetRoomByAppIdAndCreator(appId, creator string) (*RdpSessionRoom, bool) {
+	for _, r := range rdpRooms {
+		if r.Creator == creator && r.AppId == appId {
+			return r, true
+		}
+	}
+	return nil, false
+}
+
+func closeRoom(room *RdpSessionRoom) {
+	for _, u := range room.Users {
+		logrus.Infof("disconnect user %s", u.UserId)
+		u.Websocket.Close()
+	}
+
+	delete(rdpRooms, room.SessionId)
+	SessionDataStore.Delete(room.SessionId)
+	e := dbAccess.DeleteRdpSession(room.SessionId)
+	e2 := kv.Delete(fmt.Sprintf("guac-%s", room.SessionId))
+	logrus.Infof("remove session data %s, room size %d, session store size %d, e %v, e2 %v", room.SessionId, len(rdpRooms), len(SessionDataStore.Data), e, e2)
+
+	logging.Log(logging.Action{
+		AppTag:       "guac.exit",
+		RdpSessionId: room.SessionId,
+		UserEmail:    room.Creator,
+		AppID:        room.AppId,
+		TenantID:     room.TenantId,
+	})
 }
