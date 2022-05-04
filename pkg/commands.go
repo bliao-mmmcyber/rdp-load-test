@@ -35,6 +35,7 @@ func init() {
 	commands[SEARCH_USER] = SearchUserCommand{}
 	commands[REMOVE_SHARE] = RemoveShareCommand{}
 	commands[CHECK_USER] = CheckUserCommand{}
+	commands[STOP_SHARE] = StopShareCommand{}
 }
 
 func GetCommandByOp(instruction *Instruction) (Command, error) {
@@ -50,6 +51,23 @@ func GetCommandByOp(instruction *Instruction) (Command, error) {
 func GetSharingUrl(sessionId string) string {
 	url := fmt.Sprintf("https://%s/share_session?shareSessionId=%s", config.GetPortalHostName(), sessionId)
 	return url
+}
+
+type StopShareCommand struct{}
+
+func (c StopShareCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+	requestId := instruction.Args[0]
+	if client.Role != ROLE_ADMIN {
+		logrus.Errorf("%s is not host user, cannot stop sharing", client.UserId)
+		return getResponseCommand(requestId, "401")
+	}
+	if room, ok := GetRdpSessionRoom(session.RdpSessionId); ok {
+		room.StopShare()
+		return getResponseCommand(requestId, "200")
+	} else {
+		logrus.Errorf("cannot find room by session id %s", session.RdpSessionId)
+		return getResponseCommand(requestId, "400")
+	}
 }
 
 type CheckUserCommand struct{}

@@ -8,6 +8,7 @@ const (
 
 	SHARE_SESSION     = "share-session"
 	SHARE_SESSION_ACK = "share-session-ack"
+	STOP_SHARE        = "stop-share"
 
 	REMOVE_SHARE     = "remove-share"
 	REMOVE_SHARE_ACK = "remove-share-ack"

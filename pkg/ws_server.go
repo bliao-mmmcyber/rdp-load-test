@@ -90,6 +90,8 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	shareSessionId := query.Get("shareSessionId")
 	userId := query.Get("userId")
+	appId := query.Get("appId")
+
 	var sharePermissions string
 	if shareSessionId != "" { // auth check
 		valid, permissions := AuthShare(userId, shareSessionId)
@@ -98,6 +100,11 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sharePermissions = permissions
+	} else {
+		if r, ok := GetRoomByAppIdAndCreator(appId, userId); ok { // host user re-connect
+			shareSessionId = r.SessionId
+			sharePermissions = "keyboard,mouse,admin"
+		}
 	}
 
 	logrus.Debug("Connecting to tunnel")
@@ -142,7 +149,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer tunnel.ReleaseWriter()
 	defer tunnel.ReleaseReader()
 
-	appId := query.Get("appId")
 	sharing := false
 	if s.channelManagement != nil {
 		if userId != "" && appId != "" {
@@ -186,7 +192,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if e != nil {
 			logrus.Errorf("put to cache failed %v", e)
 		}
-		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo().TenantId)
+		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo())
 	} else {
 		sessionId = shareSessionId
 		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
@@ -213,7 +219,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	go wsToGuacd(ws, writer, sessionId, client)
 	guacdToWs(ws, reader)
-	AddEncodeRecoding(tunnel.GetLoggingInfo())
 
 	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
 	e = LeaveRoom(sessionId, userId)
@@ -333,10 +338,10 @@ func BroadCastPolicy(ws MessageWriter, sharing bool, appId string, userId string
 	insValue := ins.String()
 	logrus.Debug("send:", insValue)
 	if err := ws.WriteMessage(1, []byte(insValue)); err != nil {
+		logrus.Error("Failed sending policy message to ws", err)
 		if err == websocket.ErrCloseSent {
 			return
 		}
-		logrus.Traceln("(testToWs) Failed sending message to ws", err)
 		return
 	}
 }

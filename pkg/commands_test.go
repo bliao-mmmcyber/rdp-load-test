@@ -2,14 +2,46 @@ package guac
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/wwt/guac/lib/logging"
 	"github.com/wwt/guac/mocks"
 )
+
+var loggingInfo = logging.LoggingInfo{
+	TenantId: "tenantId",
+}
+
+func TestStopShareCommand(t *testing.T) {
+	sessionId := "TestStopShare"
+	ws1 := new(mocks.WriterCloser)
+	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
+	NewRdpSessionRoom(sessionId, "user1", ws1, "", true, "appId", loggingInfo)
+	_ = AddInvitee(sessionId, "user2", "")
+
+	ws2 := new(mocks.WriterCloser)
+	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
+	ws2.On("Close").Return(nil)
+	_, _ = JoinRoom(sessionId, "user2", ws2, "")
+
+	ins := NewInstruction(APPAEGIS_RESP_OP, "requestId", STOP_SHARE)
+	c, e := GetCommandByOp(ins)
+	if e != nil {
+		t.Errorf("cannot found command by %s", STOP_SHARE)
+	}
+	result := c.Exec(ins, &SessionCommonData{RdpSessionId: sessionId}, &RdpClient{UserId: "user1", Role: ROLE_ADMIN})
+	room, _ := GetRdpSessionRoom(sessionId)
+	assert.True(t, strings.Contains(result.String(), "200")) // check status
+	assert.True(t, len(room.Users) == 1)
+	assert.True(t, len(room.Invitees) == 1)
+
+	delete(rdpRooms, sessionId)
+}
 
 func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	svc := new(mocks.MailService)
@@ -18,7 +50,7 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	_ = NewRdpSessionRoom("123", "test@appaegis.com", ws1, "connectionId", true, "appId", "tenantId")
+	_ = NewRdpSessionRoom("123", "test@appaegis.com", ws1, "connectionId", true, "appId", loggingInfo)
 
 	i := Instruction{
 		Args: []string{"requestId", SHARE_SESSION, "kchung@appaegis.com:mouse,keyboard,admin"},
@@ -86,7 +118,7 @@ func TestSetPermissionsCommand(t *testing.T) {
 
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", "tenantId")
+	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", loggingInfo)
 
 	ws2 := new(mocks.WriterCloser)
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)

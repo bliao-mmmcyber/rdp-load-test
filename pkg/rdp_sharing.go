@@ -67,6 +67,7 @@ type RdpSessionRoom struct {
 	Users           map[string]*RdpClient
 	Invitees        map[string]string
 	lock            *sync.Mutex
+	loggingInfo     *logging.LoggingInfo
 }
 
 func (r *RdpSessionRoom) GetRdpClient(userId string) *RdpClient {
@@ -154,7 +155,9 @@ func (r *RdpSessionRoom) join(user string, ws WriterCloser, permissions string) 
 	defer r.lock.Unlock()
 
 	role := ROLE_VIEWER
-	if strings.Contains(permissions, "admin") {
+	if r.Creator == user {
+		role = ROLE_ADMIN
+	} else if strings.Contains(permissions, "admin") {
 		role = ROLE_CO_HOST
 	}
 	r.Users[user] = &RdpClient{
@@ -195,19 +198,52 @@ func (r *RdpSessionRoom) AddInvitee(user, permissions string) {
 	r.Invitees[user] = permissions
 }
 
+func (r *RdpSessionRoom) StopShare() {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	for _, c := range r.Users {
+		if c.UserId == r.Creator {
+			continue
+		}
+		e := c.Websocket.Close()
+		if e != nil {
+			logrus.Errorf("close %s ws failed %v", c.UserId, e)
+		}
+		delete(r.Users, c.UserId)
+	}
+
+	for u := range r.Invitees {
+		if u == r.Creator {
+			continue
+		}
+		delete(r.Invitees, u)
+	}
+	var users []User
+	if data, e := json.Marshal(users); e == nil {
+		emptyMembers := NewInstruction(MEMBERS, string(data))
+		e := r.Users[r.Creator].Websocket.WriteMessage(websocket.TextMessage, emptyMembers.Byte())
+		if e != nil {
+			logrus.Errorf("write empty members to host %s failed %v", r.Creator, e)
+		}
+	}
+}
+
 func GetRdpSessionRoom(sessionId string) (*RdpSessionRoom, bool) {
 	result, ok := rdpRooms[sessionId]
 	return result, ok
 }
 
-func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool, appId, tenantId string) *RdpClient {
+func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool, appId string, loggingInfo logging.LoggingInfo) *RdpClient {
 	lock.Lock()
 	defer lock.Unlock()
 
 	room := &RdpSessionRoom{
+		Creator:         user,
 		SessionId:       sessionId,
 		AppId:           appId,
-		TenantId:        tenantId,
+		TenantId:        loggingInfo.TenantId,
+		loggingInfo:     &loggingInfo,
 		Users:           make(map[string]*RdpClient),
 		RdpConnectionId: connectionId,
 		Invitees:        make(map[string]string),
@@ -301,6 +337,8 @@ func closeRoom(room *RdpSessionRoom) {
 	e := dbAccess.DeleteRdpSession(room.SessionId)
 	e2 := kv.Delete(fmt.Sprintf("guac-%s", room.SessionId))
 	logrus.Infof("remove session data %s, room size %d, session store size %d, e %v, e2 %v", room.SessionId, len(rdpRooms), len(SessionDataStore.Data), e, e2)
+
+	AddEncodeRecoding(*room.loggingInfo)
 
 	logging.Log(logging.Action{
 		AppTag:       "guac.exit",
