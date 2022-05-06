@@ -319,7 +319,8 @@ func LeaveRoom(sessionId, user string) error {
 
 func GetRoomByAppIdAndCreator(appId, creator string) (*RdpSessionRoom, bool) {
 	for _, r := range rdpRooms {
-		if r.Creator == creator && r.AppId == appId {
+		_, exist := r.Users[creator]
+		if r.Creator == creator && r.AppId == appId && !exist {
 			return r, true
 		}
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/wwt/guac/lib/logging"
 )
 
-const INVITEE_LIMIT = 3
+const INVITEE_LIMIT = 4
 
 type Command interface {
 	Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction

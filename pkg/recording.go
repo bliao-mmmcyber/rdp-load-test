@@ -47,6 +47,11 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		count++
 		time.Sleep(5 * time.Second)
 
+		if count > 3 {
+			logrus.Infof("retry for 3 times, ignore")
+			return
+		}
+
 		// if guac process is stopped in the middle of transcoding
 		// we should delete the old temp file and do it again
 		os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName()))
@@ -57,10 +62,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		if err != nil {
 			return
 		}
-		if count >= 3 {
-			logrus.Infof("retry for 3 times, ignore")
-			return
-		}
+
 		if err == nil && !strings.Contains(string(output), "All files encoded successfully") {
 			logrus.Infof("encode %s failed, try again", loggingInfo.GetRecordingFileName())
 			continue
