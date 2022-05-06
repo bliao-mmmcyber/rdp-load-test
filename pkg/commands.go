@@ -10,7 +10,6 @@ import (
 	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/appaegis/golang-common/pkg/httpclient"
-	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
 )
@@ -102,10 +101,7 @@ func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommo
 		// notify removed user
 		if removedUser, ok := room.Users[u]; ok {
 			removeCmd := NewInstruction(REMOVE_SHARE)
-			e := removedUser.Websocket.WriteMessage(websocket.TextMessage, removeCmd.Byte())
-			if e != nil {
-				logrus.Errorf("write remove-share to %s failed %v", u, e)
-			}
+			removedUser.WriteMessage(removeCmd)
 		}
 
 		room.RemoveUser(u)
@@ -118,10 +114,7 @@ func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommo
 	if r, ok := GetRdpSessionRoom(session.RdpSessionId); ok {
 		members := r.GetMembersInstruction()
 		for _, u := range r.Users {
-			e := u.Websocket.WriteMessage(websocket.TextMessage, members.Byte())
-			if e != nil {
-				logrus.Errorf("write members to %s failed %v", u.UserId, e)
-			}
+			u.WriteMessage(members)
 		}
 	}
 	status := "200"
@@ -176,9 +169,7 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 	}
 	ins := room.GetMembersInstruction()
 	for _, u := range room.Users {
-		if err := u.Websocket.WriteMessage(websocket.TextMessage, ins.Byte()); err != nil {
-			logrus.Errorf("send message %s to user %s failed", ins.String(), u.UserId)
-		}
+		u.WriteMessage(ins)
 	}
 
 	return getResponseCommand(instruction.Args[0], "200")
@@ -256,10 +247,7 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 	if r, ok := GetRdpSessionRoom(session.RdpSessionId); ok {
 		members := r.GetMembersInstruction()
 		for _, u := range r.Users {
-			e := u.Websocket.WriteMessage(websocket.TextMessage, members.Byte())
-			if e != nil {
-				logrus.Errorf("write members to %s failed %v", u.UserId, e)
-			}
+			u.WriteMessage(members)
 		}
 	}
 	if err != nil {

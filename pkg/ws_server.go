@@ -389,13 +389,7 @@ func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string)
 		data, _ := json.Marshal(j)
 		result = NewInstruction(APPAEGIS_RESP_OP, requestID, string(data))
 	}
-	// resultJSON, _ := json.Marshal(result)
-	// respInstruction := NewInstruction("appaegis-resp", requestID, string(resultJSON))
 	if result != nil {
-		resp := []byte(result.String())
-		logrus.Debug("appaegis cmd send: ", string(resp))
-		if err := client.Websocket.WriteMessage(websocket.TextMessage, resp); err != nil {
-			logrus.Println("write error: ", err)
-		}
+		client.WriteMessage(result)
 	}
 }

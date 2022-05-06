@@ -38,6 +38,18 @@ type RdpClient struct {
 	Role      string // admin or cohost or viewer
 	Mouse     bool
 	Keyboard  bool
+	lock      sync.Mutex
+}
+
+func (c *RdpClient) WriteMessage(ins *Instruction) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	logrus.Debug("appaegis cmd send: ", ins.String())
+	e := c.Websocket.WriteMessage(websocket.TextMessage, ins.Byte())
+	if e != nil {
+		logrus.Errorf("write message to %s failed %v", c.UserId, e)
+	}
 }
 
 func (c *RdpClient) SendPermission() {
@@ -51,10 +63,7 @@ func (c *RdpClient) SendPermission() {
 	permissions = append(permissions, c.Role)
 	permissionStr := strings.Join(permissions, ",")
 	ins := NewInstruction(USER_PERMISSON, []string{permissionStr}...)
-	e := c.Websocket.WriteMessage(websocket.TextMessage, ins.Byte())
-	if e != nil {
-		logrus.Errorf("write user-permission command to client failed %v", e)
-	}
+	c.WriteMessage(ins)
 }
 
 type RdpSessionRoom struct {
@@ -222,10 +231,7 @@ func (r *RdpSessionRoom) StopShare() {
 	var users []User
 	if data, e := json.Marshal(users); e == nil {
 		emptyMembers := NewInstruction(MEMBERS, string(data))
-		e := r.Users[r.Creator].Websocket.WriteMessage(websocket.TextMessage, emptyMembers.Byte())
-		if e != nil {
-			logrus.Errorf("write empty members to host %s failed %v", r.Creator, e)
-		}
+		r.Users[r.Creator].WriteMessage(emptyMembers)
 	}
 }
 
@@ -285,9 +291,7 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 		result = room.join(user, ws, permissions)
 		ins := room.GetMembersInstruction()
 		for _, u := range rdpRooms[sessionId].Users {
-			if err := u.Websocket.WriteMessage(websocket.TextMessage, ins.Byte()); err != nil {
-				logrus.Errorf("send message %s to user %s failed", ins.String(), u.UserId)
-			}
+			u.WriteMessage(ins)
 		}
 		return result, nil
 	} else {

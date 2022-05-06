@@ -75,7 +75,6 @@ const (
 					padding: 12px 24px;
 					text-align: center;
 					text-decoration: none;
-					text-transform: uppercase;
 					vertical-align: middle;"
 				  rel="noopener"
 				>Application Name: {{.AppName}}</a>
