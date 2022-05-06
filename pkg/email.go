@@ -13,7 +13,7 @@ import (
 
 const (
 	CharSet  = "UTF-8"
-	Subject  = "Appaegis Screen Share"
+	Subject  = "Appaegis RDP application screen share"
 	HtmlBody = `
 <html>
 	<head></head>
@@ -54,6 +54,8 @@ const (
 				">
 				  {{.Inviter}} was invite you to join a screen share. <br/>
 				  Please click the below link, then you can join the screen share.
+                  <br/><br/>
+                  Here is the screen share link
 				</span>
 				<br />
 				<br />
@@ -76,7 +78,7 @@ const (
 					text-transform: uppercase;
 					vertical-align: middle;"
 				  rel="noopener"
-				>Join</a>
+				>Application Name: {{.AppName}}</a>
 			  </td>
 			</tr>
 		  </tbody>
@@ -89,17 +91,18 @@ const (
 )
 
 type MailService interface {
-	SendInvitation(to string, inviter string, link string) error
+	SendInvitation(to string, inviter string, link string, appName string) error
 }
 
 type ContentAttributes struct {
 	Inviter string
 	Link    string
+	AppName string
 }
 
 type RdpMailService struct{}
 
-func (s RdpMailService) SendInvitation(to string, inviter string, link string) error {
+func (s RdpMailService) SendInvitation(to string, inviter string, link string, appName string) error {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(config.GetCeCogRegion()),
 	},
@@ -117,6 +120,7 @@ func (s RdpMailService) SendInvitation(to string, inviter string, link string) e
 	err = tmpl.Execute(&contentBuilder, ContentAttributes{
 		Inviter: inviter,
 		Link:    link,
+		AppName: appName,
 	})
 	if err != nil {
 		return err

@@ -46,7 +46,7 @@ func TestStopShareCommand(t *testing.T) {
 func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	svc := new(mocks.MailService)
 	mailService = svc
-	svc.On("SendInvitation", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc.On("SendInvitation", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
@@ -101,7 +101,9 @@ func TestSearchUserCommand(t *testing.T) {
 	}
 	result := c.Exec(i, &SessionCommonData{RdpSessionId: "123", TenantID: "tenantId"}, &RdpClient{})
 	assert.Equal(t, result.Args[0], "requestId")
-	assert.Equal(t, result.Args[1], "kchung@appaegis.com")
+	var searchResult SearchUserResp
+	_ = json.Unmarshal([]byte(result.Args[1]), &searchResult)
+	assert.Equal(t, searchResult.Users[0], "kchung@appaegis.com")
 }
 
 func TestSetPermissionsCommand(t *testing.T) {

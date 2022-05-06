@@ -100,7 +100,16 @@ func TestAddSharing(t *testing.T) {
 
 func TestGetRoomByAppIdAndCreator(t *testing.T) {
 	sessionId := "TestGetRoomByAppIdAndCreator"
-	NewRdpSessionRoom(sessionId, "user1", nil, "", true, "appId", loggingInfo)
+
+	ws1 := new(mocks.WriterCloser)
+	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
+	NewRdpSessionRoom(sessionId, "user1", ws1, "", true, "appId", loggingInfo)
+
+	ws2 := new(mocks.WriterCloser)
+	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
+	_, _ = JoinRoom(sessionId, "user2", ws2, "admin")
+	_ = LeaveRoom(sessionId, "user1")
+
 	r, ok := GetRoomByAppIdAndCreator("appId", "user1")
 	assert.True(t, ok)
 	assert.NotNil(t, r)

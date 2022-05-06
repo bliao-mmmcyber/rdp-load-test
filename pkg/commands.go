@@ -184,6 +184,10 @@ func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonDat
 	return getResponseCommand(instruction.Args[0], "200")
 }
 
+type SearchUserResp struct {
+	Users []string `json:"users"`
+}
+
 type SearchUserCommand struct{}
 
 func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
@@ -191,16 +195,23 @@ func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommon
 		logrus.Infof("instruction args err")
 		return nil
 	}
-	prefix := instruction.Args[2]
+	prefix := strings.TrimSpace(instruction.Args[2])
 	logrus.Infof("search user %s %s", session.TenantID, prefix)
+	var result []string
 	users, e := dbAccess.QueryUsersByTenantAndUserPrefix(session.TenantID, prefix)
 	if e != nil {
 		return nil
 	}
-	ins := NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0])
 	for _, u := range users {
-		ins.Args = append(ins.Args, u.ID)
+		result = append(result, u.ID)
 	}
+	data, e := json.Marshal(SearchUserResp{
+		Users: result,
+	})
+	if e != nil {
+		logrus.Errorf("marshall search user result failed %v", e)
+	}
+	ins := NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
 	return ins
 }
 
@@ -235,7 +246,7 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 			err = e
 			logrus.Errorf("share rdp session to user %s, permission %s, stream %s, failed %v", invitee, permissions, session.RdpSessionId, e)
 		}
-		e = mailService.SendInvitation(invitee, session.Email, url)
+		e = mailService.SendInvitation(invitee, session.Email, url, session.AppName)
 		if e != nil {
 			err = e
 			logrus.Errorf("send invitation email to %s failed %v", invitee, e)
