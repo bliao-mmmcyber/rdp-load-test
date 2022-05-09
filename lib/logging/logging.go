@@ -25,15 +25,16 @@ var (
 
 // Action is user action, the log object
 type Action struct {
-	AppType   string   `json:"app_type"`
-	AppTag    string   `json:"app_tag"`
-	TenantID  string   `json:"tenantID"`
-	AppID     string   `json:"appID"`
-	RoleIDs   []string `json:"roleIDs,omitempty"`
-	UserEmail string   `json:"userEmail"`
-	Username  string   `json:"username"`
-	FileCount int      `json:"fileCount,omitempty"`
-	ClientIP  string   `json:"client_ip"`
+	AppType      string   `json:"app_type"`
+	AppTag       string   `json:"app_tag"`
+	TenantID     string   `json:"tenantID"`
+	AppID        string   `json:"appID"`
+	RoleIDs      []string `json:"roleIDs,omitempty"`
+	UserEmail    string   `json:"userEmail"`
+	Username     string   `json:"username"`
+	FileCount    int      `json:"fileCount,omitempty"`
+	ClientIP     string   `json:"client_ip"`
+	RdpSessionId string   `json:"rdpSessionId"`
 }
 
 type LoggingInfo struct {
@@ -62,6 +63,10 @@ func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enabl
 		StartTime:       time.Now(),
 		Sku:             sku,
 	}
+}
+
+func init() {
+	logger = log.Default() // default logger for unit test
 }
 
 // Init manually create report file

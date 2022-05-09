@@ -6,21 +6,22 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/appaegis/golang-common/pkg/config"
-
+	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
-
-	"github.com/appaegis/golang-common/pkg/httpclient"
 )
 
-var appaegisCmdOpcodeIns = []byte("5.AACMD")
+var (
+	appaegisCmdOpcodeIns = []byte("5.AACMD")
+	keyCmdOpcodeIns      = []byte("3.key")
+	mouseCmdOpcodeIns    = []byte("5.mouse")
+	sizeCmdOpcodeIns     = []byte("4.size")
+)
 
 // WebsocketServer implements a websocket-based connection to guacd.
 type WebsocketServer struct {
@@ -86,6 +87,25 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logrus.Traceln("Error closing websocket", err)
 		}
 	}()
+	query := r.URL.Query()
+	shareSessionId := query.Get("shareSessionId")
+	userId := query.Get("userId")
+	appId := query.Get("appId")
+
+	var sharePermissions string
+	if shareSessionId != "" { // auth check
+		valid, permissions := AuthShare(userId, shareSessionId)
+		if !valid {
+			logrus.Infof("auth share failed, user %s, session %s", userId, shareSessionId)
+			return
+		}
+		sharePermissions = permissions
+	} else {
+		if r, ok := GetRoomByAppIdAndCreator(appId, userId); ok { // host user re-connect
+			shareSessionId = r.SessionId
+			sharePermissions = "keyboard,mouse,admin"
+		}
+	}
 
 	logrus.Debug("Connecting to tunnel")
 	var tunnel Tunnel
@@ -96,6 +116,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tunnel, e = s.connectWs(ws, r)
 	}
 	if e != nil {
+		logrus.Errorf("connect to rdp failed %v", e)
 		return
 	}
 	defer func() {
@@ -105,21 +126,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	logrus.Debug("Connected to tunnel")
 
-	query := r.URL.Query()
-	userId := query.Get("userId")
-	appId := query.Get("appId")
-	logrus.Debug("Query Parameters userId:", userId)
-	logrus.Debug("Query Parameters appId:", appId)
-
-	sessionDataKey := appId + "/" + userId
-	defer func() {
-		logrus.Infof("session data delete: %s", sessionDataKey)
-		SessionDataStore.Delete(sessionDataKey)
-	}()
-	//if data, ok := SessionDataStore.Get(sessionDataKey).(SessionCommonData); ok {
-	//	logrus.Infof("session data alert rules: %v", data)
-	//}
-
+	sessionId := tunnel.GetUUID()
 	id := tunnel.ConnectionID()
 
 	if s.OnConnect != nil {
@@ -142,23 +149,82 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer tunnel.ReleaseWriter()
 	defer tunnel.ReleaseReader()
 
+	sharing := false
 	if s.channelManagement != nil {
-		ch := make(chan int, 1)
-		channelID := uuid.NewV4()
-		defer func() { _ = s.channelManagement.Remove(appId, userId, channelID.String()) }()
-		if userId != "" {
-			_ = s.channelManagement.Add(userId, channelID.String(), ch)
+		if userId != "" && appId != "" {
+			ch := make(chan int, 1)
+			channelID := uuid.NewV4()
+			defer func() { _ = s.channelManagement.Remove(appId, userId, channelID.String()) }()
+			if userId != "" {
+				_ = s.channelManagement.Add(userId, channelID.String(), ch)
+			}
+			if appId != "" {
+				_ = s.channelManagement.Add(appId, channelID.String(), ch)
+				app := dynamodbcli.Singleon().QueryResource(appId)
+				sharing = app.AllowSharing
+			}
+			go BroadCastToWs(ws, ch, sharing, appId, userId, s.channelManagement.RequestPolicyFunc)
 		}
-		if appId != "" {
-			_ = s.channelManagement.Add(appId, channelID.String(), ch)
-		}
-
-		go BroadCastToWs(ws, ch, appId, userId, s.channelManagement.RequestPolicyFunc)
 	}
 
-	go wsToGuacd(ws, writer, sessionDataKey, tunnel.GetLoggingInfo().TenantId)
+	var client *RdpClient
+	if shareSessionId == "" { // rdp session owner connected
+		logging.Log(logging.Action{
+			AppTag:       "guac.connect",
+			RdpSessionId: sessionId,
+			UserEmail:    userId,
+			AppID:        appId,
+			TenantID:     tunnel.GetLoggingInfo().TenantId,
+			RoleIDs:      strings.Split(query.Get("roleIds"), ","),
+			ClientIP:     strings.Split(query.Get("clientIp"), ":")[0],
+		})
+
+		e := dbAccess.SaveActiveRdpSession(&dynamodbcli.ActiveRdpSession{
+			Id:        sessionId,
+			Owner:     userId,
+			TenantId:  tunnel.GetLoggingInfo().TenantId,
+			CreatedAt: time.Now(),
+		})
+		if e != nil {
+			logrus.Errorf("save active rdp session failed")
+		}
+		e = kv.PutWithTimeout(fmt.Sprintf("guac-%s", sessionId), GuacIp+":4567", 24*time.Hour)
+		if e != nil {
+			logrus.Errorf("put to cache failed %v", e)
+		}
+		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo())
+	} else {
+		sessionId = shareSessionId
+		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
+		if e != nil {
+			logrus.Errorf("join to room failed %s", sessionId)
+			return
+		}
+		if room, ok := GetRdpSessionRoom(sessionId); ok {
+			logging.Log(logging.Action{
+				AppTag:       "guac.join",
+				RdpSessionId: sessionId,
+				UserEmail:    userId,
+				AppID:        room.AppId,
+				TenantID:     room.TenantId,
+				ClientIP:     strings.Split(query.Get("clientIp"), ":")[0],
+			})
+		}
+	}
+
+	IncRdpCount(tunnel.GetLoggingInfo().TenantId)
+	defer DecRdpCount(tunnel.GetLoggingInfo().TenantId)
+
+	client.SendPermission()
+
+	go wsToGuacd(ws, writer, sessionId, client)
 	guacdToWs(ws, reader)
-	AddEncodeRecoding(tunnel.GetLoggingInfo())
+
+	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
+	e = LeaveRoom(sessionId, userId)
+	if e != nil {
+		logrus.Errorf("leave room failed, session %s, e %v", sessionId, e)
+	}
 
 	logrus.Info("server HTTP done")
 }
@@ -169,10 +235,7 @@ type MessageReader interface {
 	ReadMessage() (int, []byte, error)
 }
 
-func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, tenantId string) {
-	IncRdpCount(tenantId)
-	defer DecRdpCount(tenantId)
-
+func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, client *RdpClient) {
 	for {
 		_, data, err := ws.ReadMessage()
 		if err != nil {
@@ -185,15 +248,17 @@ func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, tenan
 			continue
 		}
 
-		// download/upload check
-		// if bytes.HasPrefix(data, downloadCmdOpcodeIns) ||
-		// 	bytes.HasPrefix(data, uploadCmdOpcodeIns) {
-		// 	handleAppaegisCommand(ws, data, sessionDataKey)
-		// 	continue
-		// }
-
 		if bytes.HasPrefix(data, appaegisCmdOpcodeIns) {
-			handleAppaegisCommand(ws, data, sessionDataKey)
+			handleAppaegisCommand(client, data, sessionDataKey)
+			continue
+		}
+		if client.Role != ROLE_ADMIN && bytes.HasPrefix(data, sizeCmdOpcodeIns) {
+			continue
+		}
+		if !client.Mouse && bytes.HasPrefix(data, mouseCmdOpcodeIns) {
+			continue
+		}
+		if !client.Keyboard && bytes.HasPrefix(data, keyCmdOpcodeIns) {
 			continue
 		}
 
@@ -239,7 +304,7 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 				if err == websocket.ErrCloseSent {
 					return
 				}
-				logrus.Traceln("Failed sending message to ws", err)
+				logrus.Errorf("Failed sending message to ws %v", err)
 				return
 			}
 			buf.Reset()
@@ -247,17 +312,17 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 	}
 }
 
-func BroadCastToWs(ws MessageWriter, ch chan int, appId string, userId string, requestPolicy func(string, string) []string) {
+func BroadCastToWs(ws MessageWriter, ch chan int, sharing bool, appId string, userId string, requestPolicy func(string, string) []string) {
 	logrus.Debug("create BroadCastToWs")
-	BroadCastPolicy(ws, appId, userId, requestPolicy)
+	BroadCastPolicy(ws, sharing, appId, userId, requestPolicy)
 	for op := range ch {
 		if op == 1 {
-			BroadCastPolicy(ws, appId, userId, requestPolicy)
+			BroadCastPolicy(ws, sharing, appId, userId, requestPolicy)
 		}
 	}
 }
 
-func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolicy func(string, string) []string) {
+func BroadCastPolicy(ws MessageWriter, sharing bool, appId string, userId string, requestPolicy func(string, string) []string) {
 	actions := requestPolicy(appId, userId)
 	if actions == nil {
 		logrus.Debug("policy empty:", appId, userId)
@@ -265,14 +330,18 @@ func BroadCastPolicy(ws MessageWriter, appId string, userId string, requestPolic
 	}
 	instruction := []string{"policy"}
 	instruction = append(instruction, actions...)
+	logrus.Debugf("sharing %v", sharing)
+	if sharing {
+		instruction = append(instruction, "share")
+	}
 	ins := NewInstruction("sync", instruction...)
 	insValue := ins.String()
 	logrus.Debug("send:", insValue)
 	if err := ws.WriteMessage(1, []byte(insValue)); err != nil {
+		logrus.Error("Failed sending policy message to ws", err)
 		if err == websocket.ErrCloseSent {
 			return
 		}
-		logrus.Traceln("(testToWs) Failed sending message to ws", err)
 		return
 	}
 }
@@ -284,7 +353,7 @@ func GetDrivePathInEFS(tenantID, appID, userID string) string {
 // J json response helper type
 type J map[string]interface{}
 
-func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string) {
+func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string) {
 	logrus.Printf("receive: %s\n", cmd)
 	instruction, err := Parse(cmd)
 	if err != nil {
@@ -296,118 +365,31 @@ func handleAppaegisCommand(ws *websocket.Conn, cmd []byte, sessionDataKey string
 		logrus.Infof("session data not found: %s", sessionDataKey)
 		return
 	}
-	// logrus.Infof("session data %v", ses)
 
-	result := J{} //nolint
-	op := instruction.Args[0]
-	requestID := instruction.Args[1]
-	logrus.Printf("op: %s, requestID: %s", op, requestID)
-
-	// operations switch
-	if op == "download-check" {
-		fileCount, err := strconv.Atoi(instruction.Args[2])
-		if err != nil {
-			fileCount = 1
-		}
-		ok, block := CheckAlertRule(ses, "download", fileCount)
-		if !ok && block {
-			result = J{
-				"ok": false,
-			}
-		} else {
-			result = J{
-				"ok":     true,
-				"prompt": !ok,
-			}
-		}
-	} else if op == "log-download" {
-		fileCount, err := strconv.Atoi(instruction.Args[2])
-		if err != nil {
-			fileCount = 1
-		}
-		logging.Log(logging.Action{
-			AppTag:    "guac.download",
-			TenantID:  ses.TenantID,
-			UserEmail: ses.Email,
-			AppID:     ses.AppID,
-			RoleIDs:   ses.RoleIDs,
-			FileCount: fileCount,
-			ClientIP:  ses.ClientIP,
-		})
-		IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
-		result = J{
-			"ok":    true,
-			"count": fileCount,
-		}
-	} else if op == "dlp-upload" {
-		fileName := instruction.Args[2]
-		logrus.Debug("dlp-upload: ", fileName)
-
-		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
-			"Content-Type": "application/json",
-		}, map[string]interface{}{
-			"appID":      ses.AppID,
-			"tenantID":   ses.TenantID,
-			"path":       fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
-			"user":       ses.Email,
-			"service":    "rdp",
-			"actionType": "upload",
-			"location":   ses.ClientIsoCountry,
-			"appName":    ses.AppName,
-			"fileName":   fileName,
-			"timestamp":  time.Now().UnixNano() / 1000000,
-		})
-		fetcher.Do()
-
-		result = J{
-			"ok": true,
-		}
-	} else if op == "dlp-download" {
-		filePath := instruction.Args[2]
-		logrus.Debug("dlp-download: ", filePath)
-		fileTokens := strings.Split(filePath, "/")
-		fileName := fileTokens[0]
-		if len(fileTokens) > 0 {
-			fileName = fileTokens[len(fileTokens)-1]
-		}
-		fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
-			"Content-Type": "application/json",
-		}, map[string]interface{}{
-			"appID":      ses.AppID,
-			"tenantID":   ses.TenantID,
-			"path":       fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath),
-			"user":       ses.Email,
-			"service":    "rdp",
-			"actionType": "download",
-			"location":   ses.ClientIsoCountry,
-			"appName":    ses.AppName,
-			"fileName":   fileName,
-			"timestamp":  time.Now().UnixNano() / 1000000,
-		})
-		fetcher.Do()
-
-		result = J{
-			"ok": true,
-		}
+	// result := J{} //nolint
+	var result *Instruction
+	op := instruction.Args[1]
+	requestID := instruction.Args[0]
+	command, e := GetCommandByOp(instruction)
+	if e == nil {
+		result = command.Exec(instruction, ses, client)
 	} else {
 		logging.Log(logging.Action{
-			AppTag:    "guac." + strings.ToLower(op),
-			TenantID:  ses.TenantID,
-			UserEmail: ses.Email,
-			AppID:     ses.AppID,
-			RoleIDs:   ses.RoleIDs,
-			ClientIP:  ses.ClientIP,
+			AppTag:       "guac." + strings.ToLower(op),
+			TenantID:     ses.TenantID,
+			UserEmail:    ses.Email,
+			AppID:        ses.AppID,
+			RoleIDs:      ses.RoleIDs,
+			ClientIP:     ses.ClientIP,
+			RdpSessionId: ses.RdpSessionId,
 		})
-		result = J{
+		j := J{
 			"ng": 1,
 		}
+		data, _ := json.Marshal(j)
+		result = NewInstruction(APPAEGIS_RESP_OP, requestID, string(data))
 	}
-
-	resultJSON, _ := json.Marshal(result)
-	respInstruction := NewInstruction("appaegis-resp", requestID, string(resultJSON))
-	resp := []byte(respInstruction.String())
-	logrus.Debug("appaegis cmd send: ", string(resp))
-	if err := ws.WriteMessage(websocket.TextMessage, resp); err != nil {
-		logrus.Println("write error: ", err)
+	if result != nil {
+		client.WriteMessage(result)
 	}
 }

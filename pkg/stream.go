@@ -168,6 +168,7 @@ func (s *Stream) Handshake(config *Config) error {
 		selectArg = config.Protocol
 	}
 
+	logrus.Infof("select, connection %s", selectArg)
 	// Send requested protocol or connection ID
 	_, err := s.Write(NewInstruction("select", selectArg).Byte())
 	if err != nil {

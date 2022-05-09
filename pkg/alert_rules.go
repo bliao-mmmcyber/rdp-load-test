@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/appaegis/golang-common/pkg/config"
-
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,6 +39,10 @@ type SessionCommonData struct {
 	Rules            map[string]*AlertRuleData
 	RoleIDs          []string
 	SessionStartTime int64
+
+	RdpSessionId string
+	GuacdAddr    string
+	Websocket    *websocket.Conn
 }
 
 // response from our aggregation API

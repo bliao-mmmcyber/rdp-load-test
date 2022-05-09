@@ -126,8 +126,8 @@ func requestPolicy(appID string, userID string) []string {
 	}
 	resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", config.GetPolicyManagementEndPoint(), requestParam.Encode()))
 	if _err != nil {
-		logrus.Fatalf("get policy failed, %s", _err.Error())
-		return nil
+		logrus.Errorf("get policy failed, %s", _err.Error())
+		return []string{}
 	}
 	defer resp.Body.Close()
 
@@ -176,8 +176,13 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	delete(config.Parameters, "role_ids")
 
 	appauthz, err := request.Cookie("appauthz")
+	idtoken := ""
 	if err == nil {
-		config.Parameters["gateway-password"] = appauthz.Value
+		idtoken = appauthz.Value
+		config.Parameters["gateway-password"] = idtoken
+	} else {
+		logrus.Errorf("appauthz cookie not found")
+		// return nil, fmt.Errorf("appauthz cookie not found")
 	}
 
 	// AC-938: alert rules
@@ -199,62 +204,70 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 
 	app := dynamodbcli.GetResourceById(appId)
+	sku := dynamodbcli.GetTenantById(tenantId).TenantType
 
 	// session recording
-	streamId := uuid.NewV4()
+	sessionId := uuid.NewV4()
 	s3key := time.Now().Format(time.RFC3339)
-	sku := dynamodbcli.GetTenantById(tenantId).TenantType
 	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
-	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, app.EnableRecording)
+	enableRecording := false
+	sessionDataKey := sessionId.String()
 
-	if app.EnableRecording {
+	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, enableRecording)
+	if app != nil && app.EnableRecording {
+		loggingInfo.EnableRecording = true
 		config.Parameters["recording-path"] = "/efs/rdp"
 		config.Parameters["create-recording-path"] = "true"
 		config.Parameters["recording-include-keys"] = "true"
 		config.Parameters["recording-name"] = loggingInfo.GetRecordingFileName()
 	}
 
-	logging.Log(logging.Action{
-		AppTag:    "guac.connect",
-		UserEmail: userId,
-		AppID:     appId,
-		RoleIDs:   strings.Split(roleIds, ","),
-		ClientIP:  strings.Split(query.Get("clientIp"), ":")[0],
-	})
-
 	alertRulesString := query.Get("alertRules")
-	sessionDataKey := appId + "/" + userId
+	shareSessionID := query.Get("shareSessionId")
+	if room, ok := guac.GetRoomByAppIdAndCreator(appId, userId); ok {
+		logrus.Infof("host user %s join to existing session %s", userId, room.SessionId)
+		shareSessionID = room.SessionId
+	}
+	session := &guac.SessionCommonData{}
+	if shareSessionID == "" { // launch a new rdp session
+		logrus.Infof("sessionId %s", sessionDataKey)
+		session.TenantID = tenantId
+		session.AppID = appId
+		session.Email = userId
+		session.RoleIDs = strings.Split(roleIds, ",")
+		session.IDToken = idtoken
+		session.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
+		session.ClientIP = clientIp
+		session.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
+		session.AppName = appName
+		session.RuleIDs = make(map[string][]string)
+		session.Rules = make(map[string]*guac.AlertRuleData)
+		session.RdpSessionId = sessionDataKey
 
-	sessionAlertRuleData := &guac.SessionCommonData{}
-	sessionAlertRuleData.TenantID = tenantId
-	sessionAlertRuleData.AppID = appId
-	sessionAlertRuleData.Email = userId
-	sessionAlertRuleData.RoleIDs = strings.Split(roleIds, ",")
-	sessionAlertRuleData.IDToken = appauthz.Value
-	sessionAlertRuleData.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
-	sessionAlertRuleData.ClientIP = clientIp
-	sessionAlertRuleData.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
-	sessionAlertRuleData.AppName = appName
-	sessionAlertRuleData.RuleIDs = make(map[string][]string)
-	sessionAlertRuleData.Rules = make(map[string]*guac.AlertRuleData)
-
-	alertRules := []guac.AlertRuleData{}
-	if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {
-		logrus.Infof("alertRulesString %s", alertRulesString)
-		logrus.Errorf("failed to unmarshal alert rules %s", err.Error())
-	} else {
-
-		logrus.Printf("role ids: %v", roleIds)
-		for i := range alertRules {
-			data := alertRules[i]
-			sessionAlertRuleData.Rules[data.RuleID] = &data
-			for _, action := range data.EventTypes {
-				sessionAlertRuleData.RuleIDs[action] = append(sessionAlertRuleData.RuleIDs[action], data.RuleID)
+		alertRules := []guac.AlertRuleData{}
+		if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {
+			logrus.Infof("alertRulesString %s", alertRulesString)
+			logrus.Errorf("failed to unmarshal alert rules %s", err.Error())
+		} else {
+			logrus.Printf("role ids: %v", roleIds)
+			for i := range alertRules {
+				data := alertRules[i]
+				session.Rules[data.RuleID] = &data
+				for _, action := range data.EventTypes {
+					session.RuleIDs[action] = append(session.RuleIDs[action], data.RuleID)
+				}
 			}
 		}
+		guac.SessionDataStore.Set(sessionDataKey, session)
+	} else { // join a existing rdp session
+		sessionData := guac.SessionDataStore.Get(shareSessionID)
+		room, ok := guac.GetRdpSessionRoom(shareSessionID)
+		if sessionData == nil || !ok {
+			return nil, fmt.Errorf("session not found by session id %s", shareSessionID)
+		}
+		config.ConnectionID = room.RdpConnectionId
+		session = sessionData.(*guac.SessionCommonData)
 	}
-	guac.SessionDataStore.Set(sessionDataKey, sessionAlertRuleData)
-	logrus.Printf("session data stored %s %v", sessionDataKey, sessionAlertRuleData)
 
 	if query.Get("width") != "" {
 		config.OptimalScreenHeight, err = strconv.Atoi(query.Get("width"))
@@ -272,34 +285,39 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 	config.AudioMimetypes = []string{"audio/L16", "rate=44100", "channels=2"}
 
-	logrus.Debug("Connecting to guacd")
-	var addr *net.TCPAddr
-	if os.Getenv("POD_IP") != "" {
-		addr, _ = net.ResolveTCPAddr("tcp", "guacd-service:4822")
+	var conn net.Conn
+	if shareSessionID != "" {
+		logrus.Infof("Connecting to guacd %s", session.GuacdAddr)
+		conn, err = net.Dial("tcp", session.GuacdAddr)
+		if err != nil {
+			logrus.Errorf("err connecting to guacd %s %v", session.GuacdAddr, err)
+			return nil, err
+		}
 	} else {
-		addr, _ = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
-	}
+		var addr *net.TCPAddr
+		if os.Getenv("POD_IP") != "" {
+			addr, _ = net.ResolveTCPAddr("tcp", "guacd-service:4822")
+		} else {
+			addr, _ = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
+		}
+		session.GuacdAddr = addr.String()
+		logrus.Infof("Connecting to guacd %s", session.GuacdAddr)
 
-	conn, err := net.DialTCP("tcp", nil, addr)
-	if err != nil {
-		logrus.Errorln("error while connecting to guacd", err)
-		return nil, err
+		conn, err = net.DialTCP("tcp", nil, addr)
+		if err != nil {
+			logrus.Errorln("error while connecting to guacd", err)
+			return nil, err
+		}
 	}
 
 	stream := guac.NewStream(conn, guac.SocketTimeout)
 
-	logrus.Debug("Connected to guacd")
-	if request.URL.Query().Get("uuid") != "" {
-		config.ConnectionID = request.URL.Query().Get("uuid")
-	}
-	logrus.Debugf("Starting handshake with %#v", config)
+	// logrus.Debugf("Starting handshake with %#v", config)
 	err = stream.Handshake(config)
 	if err != nil {
 		return nil, err
 	}
-	logrus.Debug("Socket configured")
-
-	return guac.NewSimpleTunnel(stream, streamId, loggingInfo), nil
+	return guac.NewSimpleTunnel(stream, sessionId, loggingInfo), nil
 }
 
 func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
@@ -322,7 +340,7 @@ func connectToAstraea(pmHost string, chManagement *guac.ChannelManagement) {
 				c.Close()
 				break
 			} else {
-				logrus.Infof("received msg %#v", request)
+				//  logrus.Infof("received msg %#v", request)
 				for _, event := range request.Events {
 					for _, id := range event.IDs {
 						_ = chManagement.BroadCast(id, 1)
