@@ -188,7 +188,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if e != nil {
 			logrus.Errorf("save active rdp session failed")
 		}
-		e = kv.Put(fmt.Sprintf("guac-%s", sessionId), GuacIp+":4567")
+		e = kv.PutWithTimeout(fmt.Sprintf("guac-%s", sessionId), GuacIp+":4567", 24*time.Hour)
 		if e != nil {
 			logrus.Errorf("put to cache failed %v", e)
 		}
