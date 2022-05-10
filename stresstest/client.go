@@ -38,6 +38,7 @@ func init() {
 	if os.Getenv("CE") != "" {
 		CE = os.Getenv("CE")
 	}
+	logrus.Infof("app %s, network %s, sem %s, tenant %s, ce %s", APP_ID, NETWORK_ID, SEM, TENANT_ID, CE)
 }
 
 func getTunnelId(ip, port, networkId, tenantId string) string {
