@@ -3,6 +3,7 @@ package guac
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -274,12 +275,24 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	if len(fileTokens) > 0 {
 		fileName = fileTokens[len(fileTokens)-1]
 	}
+	fullPath := fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath)
+	if info, e := os.Stat(fullPath); e == nil {
+		if info.Size() == 0 {
+			logrus.Infof("file %s size is 0", filePath)
+			result := J{
+				"ok": true,
+			}
+			data, _ := json.Marshal(result)
+			return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
+		}
+	}
+
 	fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
 		"Content-Type": "application/json",
 	}, map[string]interface{}{
 		"appID":      ses.AppID,
 		"tenantID":   ses.TenantID,
-		"path":       fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath),
+		"path":       fullPath,
 		"user":       ses.Email,
 		"service":    "rdp",
 		"actionType": "download",
