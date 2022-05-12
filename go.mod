@@ -1,9 +1,9 @@
 module github.com/wwt/guac
 
-go 1.17
+go 1.18
 
 require (
-	github.com/appaegis/golang-common v0.0.0-20220422034109-3158b7e6c84d
+	github.com/appaegis/golang-common v0.0.0-20220509021838-b050b7416fe1
 	github.com/aws/aws-sdk-go v1.42.2
 	github.com/gorilla/websocket v1.4.2
 	github.com/oschwald/geoip2-golang v1.5.0
