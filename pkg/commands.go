@@ -74,9 +74,10 @@ type CheckUserCommand struct{}
 
 func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
 	userId := instruction.Args[2]
+	logrus.Infof("check user %s", userId)
 	u := dynamodbcli.Singleon().QueryUserById(userId)
 	status := "200"
-	if u == nil || u.ID == "" {
+	if u == nil || u.ID == "" || u.TenantId != session.TenantID {
 		status = "404"
 	}
 	return getResponseCommand(instruction.Args[0], status)
@@ -245,7 +246,7 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 		}
 	}
 
-	if r, ok := GetRdpSessionRoom(session.RdpSessionId); ok {
+	if r, ok := GetRdpSessionRoom(session.RdpSessionId); ok && err == nil {
 		members := r.GetMembersInstruction()
 		for _, u := range r.Users {
 			u.WriteMessage(members)
