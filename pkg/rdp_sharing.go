@@ -311,6 +311,8 @@ func LeaveRoom(sessionId, user string) error {
 			if u.Role != ROLE_VIEWER {
 				hasAdmin = true
 			}
+			members := room.GetMembersInstruction()
+			u.WriteMessage(members)
 		}
 		if !hasAdmin {
 			closeRoom(room)
