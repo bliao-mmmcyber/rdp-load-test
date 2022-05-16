@@ -80,6 +80,9 @@ func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonD
 	if u == nil || u.ID == "" || u.TenantId != session.TenantID {
 		status = "404"
 	}
+	if userId == client.UserId { // cannot invite myself
+		status = "404"
+	}
 	return getResponseCommand(instruction.Args[0], status)
 }
 
