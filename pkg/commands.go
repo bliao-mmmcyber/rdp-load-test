@@ -83,6 +83,10 @@ func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonD
 	if userId == client.UserId { // cannot invite myself
 		status = "404"
 	}
+	r, ok := GetRdpSessionRoom(session.RdpSessionId)
+	if ok && r.Creator == userId { // cohost cannot invite host
+		status = "404"
+	}
 	return getResponseCommand(instruction.Args[0], status)
 }
 
