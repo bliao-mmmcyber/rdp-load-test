@@ -1,8 +1,9 @@
 package guac
 
 import (
-	"github.com/sirupsen/logrus"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
 func TestGetTarget(t *testing.T) {

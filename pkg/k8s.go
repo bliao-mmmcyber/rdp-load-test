@@ -3,6 +3,10 @@ package guac
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -10,13 +14,12 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"os"
-	"path/filepath"
-	"time"
 )
 
-var clientset *kubernetes.Clientset
-var NAMESPACE = "appaegis"
+var (
+	clientset *kubernetes.Clientset
+	NAMESPACE = "appaegis"
+)
 
 func InitK8S() {
 	var e error
@@ -47,7 +50,7 @@ func InitK8S() {
 func GetGuacdTarget() (string, error) {
 	endpoints, e := clientset.CoreV1().Endpoints(NAMESPACE).Get(context.Background(), "guacd-service", metav1.GetOptions{})
 	if e != nil {
-		logrus.Error("get endpoints failed %v", e)
+		logrus.Errorf("get endpoints failed %v", e)
 		return "", e
 	}
 	if len(endpoints.Subsets) <= 0 {

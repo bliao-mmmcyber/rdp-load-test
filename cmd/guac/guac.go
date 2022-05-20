@@ -295,7 +295,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 			return nil, err
 		}
 	} else {
-		var addr = "127..0.0.1:4822"
+		addr := "127.0.0.1:4822"
 		if os.Getenv("POD_IP") != "" {
 			addr, err = guac.GetGuacdTarget()
 			if err != nil {
