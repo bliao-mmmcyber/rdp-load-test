@@ -30,6 +30,7 @@ func main() {
 	geoip.Init()
 	logging.Init()
 	defer logging.Close()
+	guac.InitK8S()
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.Debugln("Debug level enabled")
 	logrus.Traceln("Trace level enabled")
@@ -294,16 +295,18 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 			return nil, err
 		}
 	} else {
-		var addr *net.TCPAddr
+		addr := "127.0.0.1:4822"
 		if os.Getenv("POD_IP") != "" {
-			addr, _ = net.ResolveTCPAddr("tcp", "guacd-service:4822")
-		} else {
-			addr, _ = net.ResolveTCPAddr("tcp", "127.0.0.1:4822")
+			addr, err = guac.GetGuacdTarget()
+			if err != nil {
+				return nil, err
+			}
+			addr = addr + ":4822"
 		}
-		session.GuacdAddr = addr.String()
+		session.GuacdAddr = addr
 		logrus.Infof("Connecting to guacd %s", session.GuacdAddr)
 
-		conn, err = net.DialTCP("tcp", nil, addr)
+		conn, err = net.Dial("tcp", addr)
 		if err != nil {
 			logrus.Errorln("error while connecting to guacd", err)
 			return nil, err
