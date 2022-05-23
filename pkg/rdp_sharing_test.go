@@ -37,7 +37,7 @@ func TestSingleAdmin(t *testing.T) {
 
 	NewRdpSessionRoom("singleAdmin", "user1", nil, "", true, "appId", "appName", loggingInfo)
 	db.On("DeleteRdpSession", mock.Anything).Return(nil)
-	_ = LeaveRoom("singleAdmin", "user1")
+	_ = LeaveRoom("singleAdmin", "user1", "", "")
 	assert.Equal(t, 0, len(rdpRooms))
 }
 
@@ -50,7 +50,7 @@ func TestTwoAdmin(t *testing.T) {
 	ws.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
 	_, _ = JoinRoom("1", "user2", ws, "admin")
 
-	_ = LeaveRoom("1", "user1")
+	_ = LeaveRoom("1", "user1", "", "")
 	assert.Equal(t, 1, len(rdpRooms))
 	assert.Equal(t, 1, len(rdpRooms["1"].Users))
 }
@@ -65,7 +65,7 @@ func TestSingleAdminLeave(t *testing.T) {
 	_, _ = JoinRoom("1", "user2", ws, "mouse")
 
 	ws.On("Close").Return(nil)
-	_ = LeaveRoom("1", "user1")
+	_ = LeaveRoom("1", "user1", "", "")
 
 	assert.Equal(t, 0, len(rdpRooms))
 }
@@ -79,7 +79,7 @@ func TestNormalUserLeave(t *testing.T) {
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
 	_, _ = JoinRoom("1", "user2", ws2, "mouse")
 
-	_ = LeaveRoom("1", "user2")
+	_ = LeaveRoom("1", "user2", "", "")
 	assert.Equal(t, 1, len(rdpRooms))
 	assert.Equal(t, 1, len(rdpRooms["1"].Users))
 }
@@ -108,7 +108,7 @@ func TestGetRoomByAppIdAndCreator(t *testing.T) {
 	ws2 := new(mocks.WriterCloser)
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
 	_, _ = JoinRoom(sessionId, "user2", ws2, "admin")
-	_ = LeaveRoom(sessionId, "user1")
+	_ = LeaveRoom(sessionId, "user1", "", "")
 
 	r, ok := GetRoomByAppIdAndCreator("appId", "user1")
 	assert.True(t, ok)

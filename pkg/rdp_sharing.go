@@ -185,15 +185,6 @@ func (r *RdpSessionRoom) join(user string, ws WriterCloser, permissions string) 
 func (r *RdpSessionRoom) leave(user string) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-
-	logging.Log(logging.Action{
-		AppTag:       "rdp.leave",
-		RdpSessionId: r.SessionId,
-		UserEmail:    user,
-		AppID:        r.AppId,
-		TenantID:     r.TenantId,
-	})
-
 	delete(r.Users, user)
 }
 
@@ -310,9 +301,17 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 	}
 }
 
-func LeaveRoom(sessionId, user string) error {
+func LeaveRoom(sessionId, user, tenantId, appId string) error {
 	lock.Lock()
 	defer lock.Unlock()
+
+	logging.Log(logging.Action{
+		AppTag:       "rdp.leave",
+		RdpSessionId: sessionId,
+		UserEmail:    user,
+		AppID:        appId,
+		TenantID:     tenantId,
+	})
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
 		room.leave(user)
