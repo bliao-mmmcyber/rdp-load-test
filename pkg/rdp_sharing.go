@@ -68,7 +68,9 @@ func (c *RdpClient) SendPermission() {
 
 type RdpSessionRoom struct {
 	Creator         string
+	ClientIp        string
 	AppId           string
+	AppName         string
 	TenantId        string
 	SessionId       string
 	RdpConnectionId string
@@ -184,6 +186,14 @@ func (r *RdpSessionRoom) leave(user string) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
+	logging.Log(logging.Action{
+		AppTag:       "rdp.leave",
+		RdpSessionId: r.SessionId,
+		UserEmail:    user,
+		AppID:        r.AppId,
+		TenantID:     r.TenantId,
+	})
+
 	delete(r.Users, user)
 }
 
@@ -240,7 +250,7 @@ func GetRdpSessionRoom(sessionId string) (*RdpSessionRoom, bool) {
 	return result, ok
 }
 
-func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool, appId string, loggingInfo logging.LoggingInfo) *RdpClient {
+func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool, appId, appName string, loggingInfo logging.LoggingInfo) *RdpClient {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -248,6 +258,7 @@ func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, conne
 		Creator:         user,
 		SessionId:       sessionId,
 		AppId:           appId,
+		AppName:         appName,
 		TenantId:        loggingInfo.TenantId,
 		loggingInfo:     &loggingInfo,
 		Users:           make(map[string]*RdpClient),
@@ -348,10 +359,12 @@ func closeRoom(room *RdpSessionRoom) {
 	AddEncodeRecoding(*room.loggingInfo)
 
 	logging.Log(logging.Action{
-		AppTag:       "guac.exit",
+		AppTag:       "rdp.exit",
 		RdpSessionId: room.SessionId,
 		UserEmail:    room.Creator,
 		AppID:        room.AppId,
+		AppName:      room.AppName,
 		TenantID:     room.TenantId,
+		ClientIP:     room.ClientIp,
 	})
 }

@@ -29,11 +29,15 @@ type Action struct {
 	AppTag       string   `json:"app_tag"`
 	TenantID     string   `json:"tenantID"`
 	AppID        string   `json:"appID"`
+	AppName      string   `json:"appName"`
 	RoleIDs      []string `json:"roleIDs,omitempty"`
 	UserEmail    string   `json:"userEmail"`
 	Username     string   `json:"username"`
+	RemotePath   string   `json:"remotePath"`
 	FileCount    int      `json:"fileCount,omitempty"`
+	Files        []string `json:"files"`
 	ClientIP     string   `json:"client_ip"`
+	TargetIp     string   `json:"dest"`
 	RdpSessionId string   `json:"rdpSessionId"`
 }
 
@@ -109,7 +113,7 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageTyp
 }
 
 func Log(action Action) {
-	action.AppType = "guac"
+	action.AppType = "rdp"
 	data, err := json.Marshal(action)
 	if err != nil {
 		logrus.Errorf("unmarshall failed %s", err.Error())
