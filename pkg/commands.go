@@ -283,6 +283,19 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	if len(fileTokens) > 0 {
 		fileName = fileTokens[len(fileTokens)-1]
 	}
+	logging.Log(logging.Action{
+		AppTag:       "rdp.download",
+		RdpSessionId: ses.RdpSessionId,
+		TenantID:     ses.TenantID,
+		AppID:        ses.AppID,
+		AppName:      ses.AppName,
+		RoleIDs:      ses.RoleIDs,
+		UserEmail:    ses.Email,
+		ClientIP:     ses.ClientIP,
+		RemotePath:   "Filesystem on Appaegis RDP",
+		Files:        []string{fileName},
+		FileCount:    1,
+	})
 	fullPath := fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath)
 	if info, e := os.Stat(fullPath); e == nil {
 		if info.Size() == 0 {
@@ -322,6 +335,20 @@ type DlpUploadCommand struct{}
 func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
 	fileName := instruction.Args[2]
 	logrus.Debug("dlp-upload: ", fileName)
+
+	logging.Log(logging.Action{
+		AppTag:       "rdp.upload",
+		RdpSessionId: ses.RdpSessionId,
+		TenantID:     ses.TenantID,
+		AppID:        ses.AppID,
+		AppName:      ses.AppName,
+		RoleIDs:      ses.RoleIDs,
+		UserEmail:    ses.Email,
+		ClientIP:     ses.ClientIP,
+		RemotePath:   "Filesystem on Appaegis RDP",
+		Files:        []string{fileName},
+		FileCount:    1,
+	})
 
 	fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
 		"Content-Type": "application/json",

@@ -68,7 +68,9 @@ func (c *RdpClient) SendPermission() {
 
 type RdpSessionRoom struct {
 	Creator         string
+	ClientIp        string
 	AppId           string
+	AppName         string
 	TenantId        string
 	SessionId       string
 	RdpConnectionId string
@@ -183,7 +185,6 @@ func (r *RdpSessionRoom) join(user string, ws WriterCloser, permissions string) 
 func (r *RdpSessionRoom) leave(user string) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-
 	delete(r.Users, user)
 }
 
@@ -240,7 +241,7 @@ func GetRdpSessionRoom(sessionId string) (*RdpSessionRoom, bool) {
 	return result, ok
 }
 
-func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool, appId string, loggingInfo logging.LoggingInfo) *RdpClient {
+func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, connectionId string, allowSharing bool, appId, appName string, loggingInfo logging.LoggingInfo) *RdpClient {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -248,6 +249,7 @@ func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, conne
 		Creator:         user,
 		SessionId:       sessionId,
 		AppId:           appId,
+		AppName:         appName,
 		TenantId:        loggingInfo.TenantId,
 		loggingInfo:     &loggingInfo,
 		Users:           make(map[string]*RdpClient),
@@ -299,9 +301,17 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 	}
 }
 
-func LeaveRoom(sessionId, user string) error {
+func LeaveRoom(sessionId, user, tenantId, appId string) error {
 	lock.Lock()
 	defer lock.Unlock()
+
+	logging.Log(logging.Action{
+		AppTag:       "rdp.leave",
+		RdpSessionId: sessionId,
+		UserEmail:    user,
+		AppID:        appId,
+		TenantID:     tenantId,
+	})
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
 		room.leave(user)
@@ -348,10 +358,12 @@ func closeRoom(room *RdpSessionRoom) {
 	AddEncodeRecoding(*room.loggingInfo)
 
 	logging.Log(logging.Action{
-		AppTag:       "guac.exit",
+		AppTag:       "rdp.exit",
 		RdpSessionId: room.SessionId,
 		UserEmail:    room.Creator,
 		AppID:        room.AppId,
+		AppName:      room.AppName,
 		TenantID:     room.TenantId,
+		ClientIP:     room.ClientIp,
 	})
 }

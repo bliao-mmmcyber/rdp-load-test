@@ -91,6 +91,11 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	shareSessionId := query.Get("shareSessionId")
 	userId := query.Get("userId")
 	appId := query.Get("appId")
+	userName := query.Get("username")
+	host := query.Get("hostname")
+	if strings.HasSuffix(host, "appaegis.tunnel") {
+		host = strings.SplitN(host, "-", 2)[0]
+	}
 
 	var sharePermissions string
 	if shareSessionId != "" { // auth check
@@ -169,14 +174,18 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var client *RdpClient
 	if shareSessionId == "" { // rdp session owner connected
+		clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 		logging.Log(logging.Action{
-			AppTag:       "guac.connect",
+			AppTag:       "rdp.open",
 			RdpSessionId: sessionId,
 			UserEmail:    userId,
+			Username:     userName,
 			AppID:        appId,
+			AppName:      tunnel.GetLoggingInfo().AppName,
 			TenantID:     tunnel.GetLoggingInfo().TenantId,
 			RoleIDs:      strings.Split(query.Get("roleIds"), ","),
-			ClientIP:     strings.Split(query.Get("clientIp"), ":")[0],
+			ClientIP:     clientIp,
+			TargetIp:     host,
 		})
 
 		e := dbAccess.SaveActiveRdpSession(&dynamodbcli.ActiveRdpSession{
@@ -192,7 +201,10 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if e != nil {
 			logrus.Errorf("put to cache failed %v", e)
 		}
-		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo())
+		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo().AppName, tunnel.GetLoggingInfo())
+		if room, ok := GetRdpSessionRoom(sessionId); ok {
+			room.ClientIp = clientIp
+		}
 	} else {
 		sessionId = shareSessionId
 		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
@@ -202,7 +214,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if room, ok := GetRdpSessionRoom(sessionId); ok {
 			logging.Log(logging.Action{
-				AppTag:       "guac.join",
+				AppTag:       "rdp.join",
 				RdpSessionId: sessionId,
 				UserEmail:    userId,
 				AppID:        room.AppId,
@@ -221,7 +233,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	guacdToWs(ws, reader)
 
 	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
-	e = LeaveRoom(sessionId, userId)
+	e = LeaveRoom(sessionId, userId, tunnel.GetLoggingInfo().TenantId, appId)
 	if e != nil {
 		logrus.Errorf("leave room failed, session %s, e %v", sessionId, e)
 	}

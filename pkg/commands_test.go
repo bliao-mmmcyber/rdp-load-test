@@ -21,7 +21,7 @@ func TestStopShareCommand(t *testing.T) {
 	sessionId := "TestStopShare"
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	NewRdpSessionRoom(sessionId, "user1", ws1, "", true, "appId", loggingInfo)
+	NewRdpSessionRoom(sessionId, "user1", ws1, "", true, "appId", "appName", loggingInfo)
 	_ = AddInvitee(sessionId, "user2", "")
 
 	ws2 := new(mocks.WriterCloser)
@@ -50,7 +50,7 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	_ = NewRdpSessionRoom("123", "test@appaegis.com", ws1, "connectionId", true, "appId", loggingInfo)
+	_ = NewRdpSessionRoom("123", "test@appaegis.com", ws1, "connectionId", true, "appId", "appName", loggingInfo)
 
 	i := Instruction{
 		Args: []string{"requestId", SHARE_SESSION, "kchung@appaegis.com:mouse,keyboard,admin"},
@@ -120,7 +120,7 @@ func TestSetPermissionsCommand(t *testing.T) {
 
 	ws1 := new(mocks.WriterCloser)
 	ws1.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
-	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", loggingInfo)
+	NewRdpSessionRoom("1", "user1", ws1, "", true, "appId", "appName", loggingInfo)
 
 	ws2 := new(mocks.WriterCloser)
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
