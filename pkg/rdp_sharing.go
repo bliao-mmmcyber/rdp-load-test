@@ -139,8 +139,6 @@ func (r *RdpSessionRoom) GetMembersInstruction() *Instruction {
 }
 
 func AuthShare(userId, shareSessionId string) (bool, string) {
-	// return true, ""
-
 	var permissions string
 	user, e := dbAccess.GetInviteeByUserIdAndSessionId(userId, shareSessionId)
 	if e != nil {
@@ -212,6 +210,14 @@ func (r *RdpSessionRoom) StopShare() {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
+	for u := range r.Invitees {
+		if u == r.Creator {
+			continue
+		}
+		delete(r.Invitees, u)
+		_ = dbAccess.RemoveInvitee(r.SessionId, u)
+	}
+
 	for _, c := range r.Users {
 		if c.UserId == r.Creator {
 			continue
@@ -223,12 +229,6 @@ func (r *RdpSessionRoom) StopShare() {
 		delete(r.Users, c.UserId)
 	}
 
-	for u := range r.Invitees {
-		if u == r.Creator {
-			continue
-		}
-		delete(r.Invitees, u)
-	}
 	var users []User
 	if data, e := json.Marshal(users); e == nil {
 		emptyMembers := NewInstruction(MEMBERS, string(data))
@@ -321,8 +321,10 @@ func LeaveRoom(sessionId, user, tenantId, appId string) error {
 			if u.Role != ROLE_VIEWER {
 				hasAdmin = true
 			}
-			members := room.GetMembersInstruction()
-			u.WriteMessage(members)
+			if len(room.Invitees) > 1 {
+				members := room.GetMembersInstruction()
+				u.WriteMessage(members)
+			}
 		}
 		if !hasAdmin {
 			closeRoom(room)

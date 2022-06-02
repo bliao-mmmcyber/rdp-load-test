@@ -34,6 +34,11 @@ func TestStopShareCommand(t *testing.T) {
 	if e != nil {
 		t.Errorf("cannot found command by %s", STOP_SHARE)
 	}
+
+	db := new(mocks.DbAccess)
+	dbAccess = db
+	db.On("RemoveInvitee", mock.Anything, mock.Anything).Return(nil)
+
 	result := c.Exec(ins, &SessionCommonData{RdpSessionId: sessionId}, &RdpClient{UserId: "user1", Role: ROLE_ADMIN})
 	room, _ := GetRdpSessionRoom(sessionId)
 	assert.True(t, strings.Contains(result.String(), "200")) // check status
