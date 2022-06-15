@@ -11,6 +11,7 @@ type DbAccess interface {
 	GetInviteeByUserIdAndSessionId(userId, sessionId string) (*dynamodbcli.ActiveRdpSessionInvitee, error)
 	QueryUsersByTenantAndUserPrefix(tenantId, userPrefix string) ([]dynamodbcli.UserEntry, error)
 	RemoveInvitee(sessionId, user string) error
+	GetTenantById(tenantId string) dynamodbcli.TenantEntry
 }
 
 type DynamodbAccess struct{}
@@ -37,4 +38,8 @@ func (d DynamodbAccess) QueryUsersByTenantAndUserPrefix(tenantId, userPrefix str
 
 func (d DynamodbAccess) RemoveInvitee(sessionId, user string) error {
 	return dynamodbcli.RemoveInvitee(sessionId, user)
+}
+
+func (d DynamodbAccess) GetTenantById(tenantId string) dynamodbcli.TenantEntry {
+	return dynamodbcli.GetTenantById(tenantId)
 }
