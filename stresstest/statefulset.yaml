@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stresstest
+  labels:
+    app: stresstest
+spec:
+  replicas: 10
+  serviceName: stresstest
+  selector:
+    matchLabels:
+      app: stresstest
+  template:
+    metadata:
+      labels:
+        app: stresstest
+    spec:
+      containers:
+        - name: stresstest
+          image: 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac/stresstest:latest
+          imagePullPolicy: Always
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: JWT
+              value: eyJraWQiOiJEaUUrbTc4XC9nRVNJb2ZhVHNxWHVFeFE4aWdQam4wdU1hdTQ1ZWlwTDlOaz0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJkOTY5NDQ4NS00MGZhLTQxNTgtOTE1MS1jMjFkMDMzNWVjY2YiLCJjb2duaXRvOmdyb3VwcyI6WyJzdXBlcnVzZXIiXSwiZW1haWxfdmVyaWZpZWQiOnRydWUsInN1cGVydXNlcnRlbmFudGlkIjoiOWMzNTMwNzEtNmY4Zi00MTE0LWFmYjctY2JhYTdhNTYzZDIxIiwiY29nbml0b1VzZXJFbWFpbCI6ImtjaHVuZ0BhcHBhZWdpcy5jb20iLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV9mcjEzYWtETTciLCJ1c2Vycm9sZSI6InN1cGVydXNlciIsImNvZ25pdG86dXNlcm5hbWUiOiJkOTY5NDQ4NS00MGZhLTQxNTgtOTE1MS1jMjFkMDMzNWVjY2YiLCJza3VUeXBlIjoiUHJvZmVzc2lvbmFsIiwiYXVkIjoiNW9wcjlzajF1YTV2cDRkN2l1ZmdqdHJ0MHEiLCJldmVudF9pZCI6IjgwOTYwODcyLWNhYWItNDJjMi04MjNhLWI2MzBjZjI5YjA0NSIsInRva2VuX3VzZSI6ImlkIiwiYXV0aF90aW1lIjoxNjUyMDc4ODU0LCJleHAiOjE2NTIwODkzMTksImlhdCI6MTY1MjA4NTcxOSwiZW1haWwiOiJrY2h1bmdAYXBwYWVnaXMuY29tIn0.NvOxYqLbw7Y0iR6sw5AEPTgYf904O41LtbxFcYwQnGGF2dzaYhHPgWu1y9SIQEgiSe_jfmQCRD-v7kdZfnA5qU30SrgQvAuw7pWJ3F2g7FhKIHTUrSK5OpiGxEMy9i5u8Jx2zICfFA0ytm9xWLCSMEOJGF2CQFGhFWdJi-CUmCrS4KTVb2wzjmFHpvPYAeIStHKh-DMGNdDEDQCIiJ6A1fYTM3cURVC8I2YW652Af0MvPimsS6cxF_uYLyZL9JhJ8FdqN6Fnu0zfdn5uz-MjYHOTYb43A_Jv3gVSTyEU0nr9JAKtqa6IjVKdYRgKyw4WLMWY6W5tNMCL9jrKxB2_YA
+            - name: RUN_FOR
+              value: 5m
+            - name: USER_COUNT
+              value: "15"
+            - name: LAUNCH_PERIOD
+              value: 10s
+            - name: APP_ID
+              value: f5136b8d-e682-4473-b708-aa8fc424b93a
+            - name: NETWORK_ID
+              value: ac7de21f-7693-4465-a016-500047c5c31a
+            - name: SEM
+              value: 10.12.94.26
+            - name: TENANT_ID
+              value: 9c353071-6f8f-4114-afb7-cbaa7a563d21
+            - name: CE
+              value: qa.ce.appaegistest.com
+
