@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,20 @@ func TestGetSharingUrl(t *testing.T) {
 	url := "qa.appaegistest.com"
 	suffix := strings.Join(strings.Split(url, ".")[1:], ".")
 	assert.Equal(t, suffix, "appaegistest.com")
+
+	config.AddConfig(config.PORTAL_HOSTNAME, "dev.appaegistest.com")
+	db := new(mocks.DbAccess)
+	dbAccess = db // inject mock
+	db.On("GetTenantById", "tenantId").Return(dynamodbcli.TenantEntry{
+		IdpDomain: "kchung",
+	})
+	db.On("GetTenantById", "tenantId2").Return(dynamodbcli.TenantEntry{})
+	result := GetSharingUrl("sessionId", "tenantId")
+	assert.True(t, strings.HasPrefix(result, "https://kchung.appaegistest.com"))
+
+	result = GetSharingUrl("sessionId", "tenantId2")
+	logrus.Infof("result %s", result)
+	assert.True(t, strings.HasPrefix(result, "https://dev.appaegistest.com"))
 }
 
 func TestStopShareCommand(t *testing.T) {
