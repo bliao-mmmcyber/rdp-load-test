@@ -48,8 +48,14 @@ func GetCommandByOp(instruction *Instruction) (Command, error) {
 	return nil, fmt.Errorf("invalid op %s", instruction.Args[1])
 }
 
-func GetSharingUrl(sessionId string) string {
-	url := fmt.Sprintf("https://%s/share_session?shareSessionId=%s", config.GetPortalHostName(), sessionId)
+func GetSharingUrl(sessionId, tenantId string) string {
+	portal := config.GetPortalHostName()
+	tenant := dbAccess.GetTenantById(tenantId)
+	if tenant.IdpDomain != "" {
+		suffix := strings.Join(strings.Split(portal, ".")[1:], ".")
+		portal = fmt.Sprintf("%s.%s", tenant.IdpDomain, suffix)
+	}
+	url := fmt.Sprintf("https://%s/share_session?shareSessionId=%s", portal, sessionId)
 	return url
 }
 
@@ -221,7 +227,7 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 	var err error
 	status := "200"
 
-	url := GetSharingUrl(session.RdpSessionId)
+	url := GetSharingUrl(session.RdpSessionId, session.TenantID)
 	for i := 2; i < len(instruction.Args); i++ {
 		strs := strings.Split(instruction.Args[i], ":")
 		if len(strs) != 2 {

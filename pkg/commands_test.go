@@ -17,6 +17,12 @@ var loggingInfo = logging.LoggingInfo{
 	TenantId: "tenantId",
 }
 
+func TestGetSharingUrl(t *testing.T) {
+	url := "qa.appaegistest.com"
+	suffix := strings.Join(strings.Split(url, ".")[1:], ".")
+	assert.Equal(t, suffix, "appaegistest.com")
+}
+
 func TestStopShareCommand(t *testing.T) {
 	sessionId := "TestStopShare"
 	ws1 := new(mocks.WriterCloser)
@@ -68,6 +74,9 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	db := new(mocks.DbAccess)
 	dbAccess = db // inject mock
 	db.On("ShareRdpSession", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	db.On("GetTenantById", mock.Anything).Return(dynamodbcli.TenantEntry{
+		IdpDomain: "qa-john",
+	})
 
 	result := c.Exec(&i, &SessionCommonData{RdpSessionId: "123"}, &RdpClient{})
 	m := make(map[string]string)
