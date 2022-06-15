@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/wwt/guac/stresstest"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/stresstest"
 )
 
 var (

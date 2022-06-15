@@ -3,15 +3,16 @@ package stresstest
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
-	guac "github.com/wwt/guac/pkg"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
+	guac "github.com/wwt/guac/pkg"
 )
 
 var (
@@ -131,5 +132,4 @@ func (c *Client) Connect(wg *sync.WaitGroup) {
 			break
 		}
 	}
-
 }
