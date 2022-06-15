@@ -1,5 +1,5 @@
 FROM 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/golang-builder-base-1.14:dev as base
-FROM golang:1.17 as build-env
+FROM golang:1.18 as build-env
 
 WORKDIR /go/src/app
 COPY --from=base /go/src/golang-common /go/src/golang-common
