@@ -25,6 +25,7 @@ var (
 
 // Action is user action, the log object
 type Action struct {
+	ProductType  string   `json:"product_type"`
 	AppType      string   `json:"app_type"`
 	AppTag       string   `json:"app_tag"`
 	TenantID     string   `json:"tenantID"`
@@ -114,6 +115,7 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageTyp
 
 func Log(action Action) {
 	action.AppType = "rdp"
+	action.ProductType = "Portal"
 	data, err := json.Marshal(action)
 	if err != nil {
 		logrus.Errorf("unmarshall failed %s", err.Error())
