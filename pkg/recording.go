@@ -57,7 +57,7 @@ func Encode(loggingInfo logging.LoggingInfo) {
 		os.Remove(fmt.Sprintf("/efs/rdp/%s.mp4", loggingInfo.GetRecordingFileName()))
 		os.Remove(fmt.Sprintf("/efs/rdp/%s.m4v", loggingInfo.GetRecordingFileName()))
 
-		output, err := exec.Command("guacenc", "-s", "1280x720", fmt.Sprintf("/efs/rdp/%s", loggingInfo.GetRecordingFileName())).CombinedOutput()
+		output, err := exec.Command("guacenc", "-s", "1280x720", "-r", "5000000", fmt.Sprintf("/efs/rdp/%s", loggingInfo.GetRecordingFileName())).CombinedOutput()
 		logrus.Infof("encode result %s, err %v", output, err)
 		if err != nil {
 			return
