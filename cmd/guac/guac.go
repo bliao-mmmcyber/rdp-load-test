@@ -205,7 +205,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	app := dynamodbcli.GetResourceById(appId)
 	sku := dynamodbcli.GetTenantById(tenantId).TenantType
-	logrus.Infof("app %s, user %s, permissions %s, recording %v", appId, userId, permissions, app.EnableRecording)
+	logrus.Infof("app %s, user %s, permissions %s, recording %v", appId, userId, permissions, app != nil && app.EnableRecording)
 
 	// session recording
 	sessionId := uuid.NewV4()
@@ -244,6 +244,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.RuleIDs = make(map[string][]string)
 		session.Rules = make(map[string]*guac.AlertRuleData)
 		session.RdpSessionId = sessionDataKey
+		session.UserAgentHeader = request.UserAgent()
 
 		alertRules := []guac.AlertRuleData{}
 		if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {

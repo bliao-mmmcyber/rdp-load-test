@@ -6,11 +6,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/appaegis/golang-common/pkg/config"
+	"github.com/appaegis/golang-common/pkg/dlp"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
-	"github.com/appaegis/golang-common/pkg/httpclient"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
 )
@@ -314,21 +313,19 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		}
 	}
 
-	fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
-		"Content-Type": "application/json",
-	}, map[string]interface{}{
-		"appID":      ses.AppID,
-		"tenantID":   ses.TenantID,
-		"path":       fullPath,
-		"user":       ses.Email,
-		"service":    "rdp",
-		"actionType": "download",
-		"location":   ses.ClientIsoCountry,
-		"appName":    ses.AppName,
-		"fileName":   fileName,
-		"timestamp":  time.Now().UnixNano() / 1000000,
+	_ = dlp.SendJobEvent(dlp.EventPayload{
+		FromService:     "rdp",
+		Path:            fullPath,
+		FileName:        fileName,
+		ActionType:      "download",
+		AppID:           ses.AppID,
+		TenantID:        ses.TenantID,
+		User:            ses.Email,
+		Location:        ses.ClientIsoCountry,
+		AppName:         ses.AppName,
+		UserAgentHeader: ses.UserAgentHeader,
 	})
-	fetcher.Do()
+
 	result := J{
 		"ok": true,
 	}
@@ -356,21 +353,18 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 		FileCount:    1,
 	})
 
-	fetcher := httpclient.NewResponseParser("POST", fmt.Sprintf("http://%s/event", config.GetDlpClientHost()), map[string]string{
-		"Content-Type": "application/json",
-	}, map[string]interface{}{
-		"appID":      ses.AppID,
-		"tenantID":   ses.TenantID,
-		"path":       fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
-		"user":       ses.Email,
-		"service":    "rdp",
-		"actionType": "upload",
-		"location":   ses.ClientIsoCountry,
-		"appName":    ses.AppName,
-		"fileName":   fileName,
-		"timestamp":  time.Now().UnixNano() / 1000000,
+	_ = dlp.SendJobEvent(dlp.EventPayload{
+		FromService:     "rdp",
+		Path:            fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
+		FileName:        fileName,
+		ActionType:      "upload",
+		AppID:           ses.AppID,
+		TenantID:        ses.TenantID,
+		User:            ses.Email,
+		Location:        ses.ClientIsoCountry,
+		AppName:         ses.AppName,
+		UserAgentHeader: ses.UserAgentHeader,
 	})
-	fetcher.Do()
 
 	result := J{
 		"ok": true,

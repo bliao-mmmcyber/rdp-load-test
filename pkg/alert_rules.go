@@ -39,6 +39,7 @@ type SessionCommonData struct {
 	Rules            map[string]*AlertRuleData
 	RoleIDs          []string
 	SessionStartTime int64
+	UserAgentHeader  string
 
 	RdpSessionId string
 	GuacdAddr    string
