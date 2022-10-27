@@ -381,7 +381,7 @@ func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		fileCount = 1
 	}
 	logging.Log(logging.Action{
-		AppTag:       "guac.download",
+		AppTag:       "rdp.download",
 		TenantID:     ses.TenantID,
 		UserEmail:    ses.Email,
 		AppID:        ses.AppID,
