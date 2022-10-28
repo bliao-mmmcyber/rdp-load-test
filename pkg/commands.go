@@ -278,6 +278,33 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 	return resp
 }
 
+type DLPJobEventPayload struct {
+	Path            string
+	User            string
+	FileName        string
+	ActionType      string
+	AppID           string
+	AppName         string
+	TenantID        string
+	Location        string
+	UserAgentHeader string
+}
+
+func sendDLPJobEvent(payload DLPJobEventPayload) {
+	_ = dlp.SendJobEvent(dlp.EventPayload{
+		FromService:     "rdp",
+		Path:            payload.Path,
+		User:            payload.User,
+		FileName:        payload.FileName,
+		ActionType:      payload.ActionType,
+		AppID:           payload.AppID,
+		AppName:         payload.AppName,
+		TenantID:        payload.TenantID,
+		Location:        payload.Location,
+		UserAgentHeader: payload.UserAgentHeader,
+	})
+}
+
 type DlpDownloadCommand struct{}
 
 func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
@@ -313,8 +340,7 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		}
 	}
 
-	_ = dlp.SendJobEvent(dlp.EventPayload{
-		FromService:     "rdp",
+	sendDLPJobEvent(DLPJobEventPayload{
 		Path:            fullPath,
 		FileName:        fileName,
 		ActionType:      "download",
@@ -353,8 +379,7 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 		FileCount:    1,
 	})
 
-	_ = dlp.SendJobEvent(dlp.EventPayload{
-		FromService:     "rdp",
+	sendDLPJobEvent(DLPJobEventPayload{
 		Path:            fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
 		FileName:        fileName,
 		ActionType:      "upload",
