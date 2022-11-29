@@ -244,7 +244,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.RuleIDs = make(map[string][]string)
 		session.Rules = make(map[string]*guac.AlertRuleData)
 		session.RdpSessionId = sessionDataKey
-		session.UserAgentHeader = request.UserAgent()
 
 		alertRules := []guac.AlertRuleData{}
 		if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {

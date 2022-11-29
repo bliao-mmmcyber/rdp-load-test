@@ -1,6 +1,7 @@
 package guac
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -26,6 +27,7 @@ var commands = make(map[string]Command)
 
 func init() {
 	commands[SHARE_SESSION] = RequestSharingCommand{}
+	commands[REPORT_CONTEXT] = ReportContextCommand{}
 	commands[DLP_DOWNLOAD] = DlpDownloadCommand{}
 	commands[DLP_UPLOAD] = DlpUploadCommand{}
 	commands[LOG_DOWNLOAD] = LogDownloadCommand{}
@@ -73,6 +75,27 @@ func (c StopShareCommand) Exec(instruction *Instruction, session *SessionCommonD
 		logrus.Errorf("cannot find room by session id %s", session.RdpSessionId)
 		return getResponseCommand(requestId, "400")
 	}
+}
+
+type ReportContextCommand struct{}
+
+func (c ReportContextCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+	requestId := instruction.Args[0]
+	encodedContext := instruction.Args[2]
+	contextRAW, err := base64.StdEncoding.DecodeString(encodedContext)
+	if err != nil {
+		return getResponseCommand(requestId, "400")
+	}
+
+	userAgent := dynamodbcli.UserAgent{}
+	err = json.Unmarshal(contextRAW, &userAgent)
+	if err != nil {
+		return getResponseCommand(requestId, "400")
+	}
+
+	client.UserAgent = userAgent
+
+	return getResponseCommand(requestId, "200")
 }
 
 type CheckUserCommand struct{}
@@ -279,29 +302,29 @@ func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCo
 }
 
 type DLPJobEventPayload struct {
-	Path            string
-	User            string
-	FileName        string
-	ActionType      string
-	AppID           string
-	AppName         string
-	TenantID        string
-	Location        string
-	UserAgentHeader string
+	Path       string
+	User       string
+	FileName   string
+	ActionType string
+	AppID      string
+	AppName    string
+	TenantID   string
+	Location   string
+	UserAgent  dynamodbcli.UserAgent
 }
 
 func sendDLPJobEvent(payload DLPJobEventPayload) {
 	_ = dlp.SendJobEvent(dlp.EventPayload{
-		FromService:     "rdp",
-		Path:            payload.Path,
-		User:            payload.User,
-		FileName:        payload.FileName,
-		ActionType:      payload.ActionType,
-		AppID:           payload.AppID,
-		AppName:         payload.AppName,
-		TenantID:        payload.TenantID,
-		Location:        payload.Location,
-		UserAgentHeader: payload.UserAgentHeader,
+		FromService: "rdp",
+		Path:        payload.Path,
+		User:        payload.User,
+		FileName:    payload.FileName,
+		ActionType:  payload.ActionType,
+		AppID:       payload.AppID,
+		AppName:     payload.AppName,
+		TenantID:    payload.TenantID,
+		Location:    payload.Location,
+		UserAgent:   payload.UserAgent,
 	})
 }
 
@@ -341,15 +364,15 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	}
 
 	sendDLPJobEvent(DLPJobEventPayload{
-		Path:            fullPath,
-		FileName:        fileName,
-		ActionType:      "download",
-		AppID:           ses.AppID,
-		TenantID:        ses.TenantID,
-		User:            ses.Email,
-		Location:        ses.ClientIsoCountry,
-		AppName:         ses.AppName,
-		UserAgentHeader: ses.UserAgentHeader,
+		Path:       fullPath,
+		FileName:   fileName,
+		ActionType: "download",
+		AppID:      ses.AppID,
+		TenantID:   ses.TenantID,
+		User:       ses.Email,
+		Location:   ses.ClientIsoCountry,
+		AppName:    ses.AppName,
+		UserAgent:  client.UserAgent,
 	})
 
 	result := J{
@@ -380,15 +403,15 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 	})
 
 	sendDLPJobEvent(DLPJobEventPayload{
-		Path:            fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
-		FileName:        fileName,
-		ActionType:      "upload",
-		AppID:           ses.AppID,
-		TenantID:        ses.TenantID,
-		User:            ses.Email,
-		Location:        ses.ClientIsoCountry,
-		AppName:         ses.AppName,
-		UserAgentHeader: ses.UserAgentHeader,
+		Path:       fmt.Sprintf("%s/%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), fileName),
+		FileName:   fileName,
+		ActionType: "upload",
+		AppID:      ses.AppID,
+		TenantID:   ses.TenantID,
+		User:       ses.Email,
+		Location:   ses.ClientIsoCountry,
+		AppName:    ses.AppName,
+		UserAgent:  client.UserAgent,
 	})
 
 	result := J{

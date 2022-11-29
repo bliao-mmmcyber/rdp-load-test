@@ -15,6 +15,7 @@ const (
 
 	DLP_DOWNLOAD    = "dlp-download"
 	DLP_UPLOAD      = "dlp-upload"
+	REPORT_CONTEXT  = "report-context"
 	LOG_DOWNLOAD    = "log-download"
 	DOWNLOAD_CHECK  = "download-check"
 	SET_PERMISSONS  = "set-permissions"
