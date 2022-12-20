@@ -168,7 +168,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				app := dynamodbcli.Singleon().QueryResource(appId)
 				sharing = app.AllowSharing
 			}
-			go BroadCastToWs(ws, ch, sharing, appId, userId, s.channelManagement.RequestPolicyFunc)
+			go BroadCastToWs(ws, ch, sharing, appId, userId)
 		}
 	}
 
@@ -324,18 +324,18 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 	}
 }
 
-func BroadCastToWs(ws MessageWriter, ch chan int, sharing bool, appId string, userId string, requestPolicy func(string, string) []string) {
+func BroadCastToWs(ws MessageWriter, ch chan int, sharing bool, appId string, userId string) {
 	logrus.Debug("create BroadCastToWs")
-	BroadCastPolicy(ws, sharing, appId, userId, requestPolicy)
+	BroadCastPolicy(ws, sharing, appId, userId)
 	for op := range ch {
 		if op == 1 {
-			BroadCastPolicy(ws, sharing, appId, userId, requestPolicy)
+			BroadCastPolicy(ws, sharing, appId, userId)
 		}
 	}
 }
 
-func BroadCastPolicy(ws MessageWriter, sharing bool, appId string, userId string, requestPolicy func(string, string) []string) {
-	actions := requestPolicy(appId, userId)
+func BroadCastPolicy(ws MessageWriter, sharing bool, appId string, userId string) {
+	actions := dynamodbcli.QueryPolicyByAstraea(appId, userId).Actions
 	if actions == nil {
 		logrus.Debug("policy empty:", appId, userId)
 		return

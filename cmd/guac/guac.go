@@ -47,7 +47,6 @@ func main() {
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
 
 	chManagement := guac.NewChannelManagement()
-	chManagement.RequestPolicyFunc = requestPolicy
 
 	go connectToAstraea(pmHost, chManagement)
 
@@ -60,23 +59,6 @@ func main() {
 	mux.Handle("/tunnel", servlet)
 	mux.Handle("/tunnel/", servlet)
 	mux.Handle("/websocket-tunnel", wsServer)
-	mux.HandleFunc("/policy", guac.WithMetrics(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPut {
-			var p PolicyNotifyRequest
-			err := json.NewDecoder(r.Body).Decode(&p)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			for _, event := range p.Events {
-				for _, id := range event.IDs {
-					_ = chManagement.BroadCast(id, 1)
-				}
-			}
-		} else {
-			http.Error(w, "not allow method", http.StatusInternalServerError)
-		}
-	}))
 	mux.HandleFunc("/sessions/", guac.WithMetrics(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -118,27 +100,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-}
-
-func requestPolicy(appID string, userID string) []string {
-	requestParam := url.Values{
-		"userID": []string{userID},
-		"appID":  []string{appID},
-	}
-	resp, _err := http.Get(fmt.Sprintf("http://%s/policy?%s", config.GetPolicyManagementEndPoint(), requestParam.Encode()))
-	if _err != nil {
-		logrus.Errorf("get policy failed, %s", _err.Error())
-		return []string{}
-	}
-	defer resp.Body.Close()
-
-	var p PolicyResponse
-	body, _ := ioutil.ReadAll(resp.Body)
-	_ = json.Unmarshal(body, &p)
-	if p.Actions != nil {
-		return p.Actions
-	}
-	return nil
 }
 
 // DemoDoConnect creates the tunnel to the remote machine (via guacd)
@@ -193,7 +154,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	userId := query.Get("userId")
 	appName := query.Get("appName")
 	var permissions string
-	if actions := requestPolicy(appId, userId); actions != nil {
+	if actions := dynamodbcli.QueryPolicyByAstraea(appId, userId).Actions; actions != nil {
 		permissions = strings.Join(actions, ",")
 	}
 	if !strings.Contains(permissions, "copy") {
@@ -368,8 +329,4 @@ type PolicyNotifyEvent struct {
 }
 type PolicyNotifyRequest struct {
 	Events []PolicyNotifyEvent `json:"events"`
-}
-
-type PolicyResponse struct {
-	Actions []string `json:"actions"`
 }

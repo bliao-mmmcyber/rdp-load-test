@@ -7,9 +7,8 @@ import (
 )
 
 type ChannelManagement struct {
-	ChannelList       map[string]map[string]chan int
-	RequestPolicyFunc func(string, string) []string
-	mu                sync.Mutex
+	ChannelList map[string]map[string]chan int
+	mu          sync.Mutex
 }
 
 func NewChannelManagement() *ChannelManagement {
