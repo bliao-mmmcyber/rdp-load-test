@@ -77,3 +77,15 @@ jobs:
       token:    ${{ secrets.ORG_TOKEN }}
       keyid:    ${{ secrets.AWS_ACCESS_KEY_ID }}
       key:      ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  dependabot-automerge:
+    needs: call-coverager-check-trigger
+
+    permissions:
+      pull-requests: write
+      contents: write
+
+    uses: appaegis/gitaction-lib/.github/workflows/dependabot-automerge.yaml@main
+    with:
+      actor: 'dependabot[bot]'
+      label: 'dependencies'
