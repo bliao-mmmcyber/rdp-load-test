@@ -5,7 +5,7 @@ name: CI
 # Controls when the workflow will run
 on:
   # Triggers the workflow on push or pull request events but only for the dev branch
-  pull_request:
+  pull_request_target:
     branches: [ dev, main ]
 
   # Allows you to run this workflow manually from the Actions tab
@@ -85,7 +85,7 @@ jobs:
       pull-requests: write
       contents: write
 
+    if: github.actor == 'dependabot[bot]'
     uses: appaegis/gitaction-lib/.github/workflows/dependabot-automerge.yaml@main
     with:
-      actor: 'dependabot[bot]'
       label: 'dependencies'
