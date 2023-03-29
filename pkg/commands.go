@@ -339,17 +339,22 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		fileName = fileTokens[len(fileTokens)-1]
 	}
 	logging.Log(logging.Action{
-		AppTag:       "rdp.download",
-		RdpSessionId: ses.RdpSessionId,
-		TenantID:     ses.TenantID,
-		AppID:        ses.AppID,
-		AppName:      ses.AppName,
-		RoleIDs:      ses.RoleIDs,
-		UserEmail:    ses.Email,
-		ClientIP:     ses.ClientIP,
-		RemotePath:   "Filesystem on Appaegis RDP",
-		Files:        []string{fileName},
-		FileCount:    1,
+		AppTag:            "rdp.download",
+		RdpSessionId:      ses.RdpSessionId,
+		TenantID:          ses.TenantID,
+		AppID:             ses.AppID,
+		AppName:           ses.AppName,
+		RoleIDs:           ses.RoleIDs,
+		UserEmail:         ses.Email,
+		ClientIP:          ses.ClientIP,
+		RemotePath:        "Filesystem on Appaegis RDP",
+		Files:             []string{fileName},
+		FileCount:         1,
+		Recording:         ses.Recording,
+		PolicyID:          ses.PolicyID,
+		PolicyName:        ses.PolicyName,
+		MonitorPolicyId:   ses.MonitorPolicyId,
+		MonitorPolicyName: ses.MonitorPolicyName,
 	})
 	fullPath := fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath)
 	if info, e := os.Stat(fullPath); e == nil {
@@ -389,17 +394,22 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 	logrus.Debug("dlp-upload: ", fileName)
 
 	logging.Log(logging.Action{
-		AppTag:       "rdp.upload",
-		RdpSessionId: ses.RdpSessionId,
-		TenantID:     ses.TenantID,
-		AppID:        ses.AppID,
-		AppName:      ses.AppName,
-		RoleIDs:      ses.RoleIDs,
-		UserEmail:    ses.Email,
-		ClientIP:     ses.ClientIP,
-		RemotePath:   "Filesystem on Appaegis RDP",
-		Files:        []string{fileName},
-		FileCount:    1,
+		AppTag:            "rdp.upload",
+		RdpSessionId:      ses.RdpSessionId,
+		TenantID:          ses.TenantID,
+		AppID:             ses.AppID,
+		AppName:           ses.AppName,
+		RoleIDs:           ses.RoleIDs,
+		UserEmail:         ses.Email,
+		ClientIP:          ses.ClientIP,
+		RemotePath:        "Filesystem on Appaegis RDP",
+		Files:             []string{fileName},
+		FileCount:         1,
+		Recording:         ses.Recording,
+		PolicyID:          ses.PolicyID,
+		PolicyName:        ses.PolicyName,
+		MonitorPolicyId:   ses.MonitorPolicyId,
+		MonitorPolicyName: ses.MonitorPolicyName,
 	})
 
 	sendDLPJobEvent(DLPJobEventPayload{
@@ -429,14 +439,19 @@ func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		fileCount = 1
 	}
 	logging.Log(logging.Action{
-		AppTag:       "rdp.download",
-		TenantID:     ses.TenantID,
-		UserEmail:    ses.Email,
-		AppID:        ses.AppID,
-		RoleIDs:      ses.RoleIDs,
-		FileCount:    fileCount,
-		ClientIP:     ses.ClientIP,
-		RdpSessionId: ses.RdpSessionId,
+		AppTag:            "rdp.download",
+		TenantID:          ses.TenantID,
+		UserEmail:         ses.Email,
+		AppID:             ses.AppID,
+		RoleIDs:           ses.RoleIDs,
+		FileCount:         fileCount,
+		ClientIP:          ses.ClientIP,
+		RdpSessionId:      ses.RdpSessionId,
+		Recording:         ses.Recording,
+		PolicyID:          ses.PolicyID,
+		PolicyName:        ses.PolicyName,
+		MonitorPolicyId:   ses.MonitorPolicyId,
+		MonitorPolicyName: ses.MonitorPolicyName,
 	})
 	IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
 	result := J{

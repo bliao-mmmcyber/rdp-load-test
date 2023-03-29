@@ -306,13 +306,19 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 func LeaveRoom(sessionId, user, tenantId, appId string) error {
 	lock.Lock()
 	defer lock.Unlock()
+	ses, _ := SessionDataStore.Get(sessionId).(*SessionCommonData)
 
 	logging.Log(logging.Action{
-		AppTag:       "rdp.leave",
-		RdpSessionId: sessionId,
-		UserEmail:    user,
-		AppID:        appId,
-		TenantID:     tenantId,
+		AppTag:            "rdp.leave",
+		RdpSessionId:      sessionId,
+		UserEmail:         user,
+		AppID:             appId,
+		TenantID:          tenantId,
+		Recording:         ses.Recording,
+		PolicyID:          ses.PolicyID,
+		PolicyName:        ses.PolicyName,
+		MonitorPolicyId:   ses.MonitorPolicyId,
+		MonitorPolicyName: ses.MonitorPolicyName,
 	})
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
@@ -352,22 +358,28 @@ func closeRoom(room *RdpSessionRoom) {
 		logrus.Infof("disconnect user %s", u.UserId)
 		u.Websocket.Close()
 	}
+	ses, _ := SessionDataStore.Get(room.SessionId).(*SessionCommonData)
 
 	delete(rdpRooms, room.SessionId)
 	SessionDataStore.Delete(room.SessionId)
 	e := dbAccess.DeleteRdpSession(room.SessionId)
 	e2 := kv.Delete(fmt.Sprintf("guac-%s", room.SessionId))
 	logrus.Infof("remove session data %s, room size %d, session store size %d, e %v, e2 %v", room.SessionId, len(rdpRooms), len(SessionDataStore.Data), e, e2)
-
+	room.loggingInfo.SessionId = ses.RdpSessionId
 	AddEncodeRecoding(*room.loggingInfo)
 
 	logging.Log(logging.Action{
-		AppTag:       "rdp.exit",
-		RdpSessionId: room.SessionId,
-		UserEmail:    room.Creator,
-		AppID:        room.AppId,
-		AppName:      room.AppName,
-		TenantID:     room.TenantId,
-		ClientIP:     room.ClientIp,
+		AppTag:            "rdp.exit",
+		RdpSessionId:      room.SessionId,
+		UserEmail:         room.Creator,
+		AppID:             room.AppId,
+		AppName:           room.AppName,
+		TenantID:          room.TenantId,
+		ClientIP:          room.ClientIp,
+		Recording:         ses.Recording,
+		PolicyID:          ses.PolicyID,
+		PolicyName:        ses.PolicyName,
+		MonitorPolicyId:   ses.MonitorPolicyId,
+		MonitorPolicyName: ses.MonitorPolicyName,
 	})
 }

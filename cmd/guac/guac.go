@@ -12,8 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/appaegis/golang-common/pkg/config"
+	clientConfig "github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/storage"
 	"github.com/appaegis/golang-common/pkg/utils"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -41,7 +42,7 @@ func main() {
 	go cleanExpiredRdpFiles()
 
 	// XXX
-	pmHost := config.GetPolicyManagementEndPoint()
+	pmHost := clientConfig.GetPolicyManagementEndPoint()
 
 	servlet := &guac.GuacServerWrapper{Server: guac.NewServer(DemoDoConnect)}
 	wsServer := guac.NewWebsocketServer(DemoDoConnect)
@@ -163,8 +164,8 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	if !strings.Contains(permissions, "paste") {
 		config.Parameters["disable-paste"] = "true"
 	}
-
-	app := dynamodbcli.GetResourceById(appId)
+	DBclient := dynamodbcli.Singleon()
+	app := DBclient.QueryResource(appId)
 	sku := dynamodbcli.GetTenantById(tenantId).TenantType
 	logrus.Infof("app %s, user %s, permissions %s, recording %v", appId, userId, permissions, app != nil && app.EnableRecording)
 
@@ -205,6 +206,21 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.RuleIDs = make(map[string][]string)
 		session.Rules = make(map[string]*guac.AlertRuleData)
 		session.RdpSessionId = sessionDataKey
+
+		policy := DBclient.QueryPolicyEntryById(app.ResourceEntryPolicyID)
+		if policy != nil {
+			session.PolicyID = policy.ID
+			session.PolicyName = policy.Name
+		}
+		if app.MonitorPolicyEntryId != "" {
+			monitorPolicy := DBclient.QueryMonitorPolicyEntryById(app.MonitorPolicyEntryId)
+			session.MonitorPolicyId = monitorPolicy.ID
+			session.MonitorPolicyName = monitorPolicy.Name
+		}
+		_, fail := storage.GetStorageByTenantId(tenantId, clientConfig.GetRegion())
+		if app.EnableRecording && !fail {
+			session.Recording = true
+		}
 
 		alertRules := []guac.AlertRuleData{}
 		if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {

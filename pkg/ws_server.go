@@ -173,19 +173,25 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var client *RdpClient
+	ses, _ := SessionDataStore.Get(sessionId).(*SessionCommonData)
 	if shareSessionId == "" { // rdp session owner connected
 		clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 		logging.Log(logging.Action{
-			AppTag:       "rdp.open",
-			RdpSessionId: sessionId,
-			UserEmail:    userId,
-			Username:     userName,
-			AppID:        appId,
-			AppName:      tunnel.GetLoggingInfo().AppName,
-			TenantID:     tunnel.GetLoggingInfo().TenantId,
-			RoleIDs:      strings.Split(query.Get("roleIds"), ","),
-			ClientIP:     clientIp,
-			TargetIp:     host,
+			AppTag:            "rdp.open",
+			RdpSessionId:      sessionId,
+			UserEmail:         userId,
+			Username:          userName,
+			AppID:             appId,
+			AppName:           tunnel.GetLoggingInfo().AppName,
+			TenantID:          tunnel.GetLoggingInfo().TenantId,
+			RoleIDs:           strings.Split(query.Get("roleIds"), ","),
+			ClientIP:          clientIp,
+			TargetIp:          host,
+			Recording:         ses.Recording,
+			PolicyID:          ses.PolicyID,
+			PolicyName:        ses.PolicyName,
+			MonitorPolicyId:   ses.MonitorPolicyId,
+			MonitorPolicyName: ses.MonitorPolicyName,
 		})
 
 		e := dbAccess.SaveActiveRdpSession(&dynamodbcli.ActiveRdpSession{
@@ -214,12 +220,17 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if room, ok := GetRdpSessionRoom(sessionId); ok {
 			logging.Log(logging.Action{
-				AppTag:       "rdp.join",
-				RdpSessionId: sessionId,
-				UserEmail:    userId,
-				AppID:        room.AppId,
-				TenantID:     room.TenantId,
-				ClientIP:     strings.Split(query.Get("clientIp"), ":")[0],
+				AppTag:            "rdp.join",
+				RdpSessionId:      sessionId,
+				UserEmail:         userId,
+				AppID:             room.AppId,
+				TenantID:          room.TenantId,
+				ClientIP:          strings.Split(query.Get("clientIp"), ":")[0],
+				Recording:         ses.Recording,
+				PolicyID:          ses.PolicyID,
+				PolicyName:        ses.PolicyName,
+				MonitorPolicyId:   ses.MonitorPolicyId,
+				MonitorPolicyName: ses.MonitorPolicyName,
 			})
 		}
 	}
