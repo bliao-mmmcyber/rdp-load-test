@@ -40,6 +40,12 @@ type SessionCommonData struct {
 	RoleIDs          []string
 	SessionStartTime int64
 
+	Recording         bool
+	PolicyID          string
+	PolicyName        string
+	MonitorPolicyId   string
+	MonitorPolicyName string
+
 	RdpSessionId string
 	GuacdAddr    string
 	Websocket    *websocket.Conn

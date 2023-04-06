@@ -64,6 +64,8 @@ github.com/alicebob/miniredis/v2 v2.21.0 h1:CdmwIlKUWFBDS+4464GtQiQ0R1vpzOgu4Vnd
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/appaegis/golang-common v0.0.0-20221128094315-8dc1792c15c4 h1:O5CSL0JMxAK19AvflJowOtscWWQQB6g1vPJ/DsyTYMM=
 github.com/appaegis/golang-common v0.0.0-20221128094315-8dc1792c15c4/go.mod h1:YHXATULexWOtU1+O61oUcki0wAUshtfxhV1clMK9bgY=
+github.com/appaegis/golang-common v0.0.0-20230317035809-406f6a313610 h1:hfjnHZPADIwPaQa1b9dF/VuwOsF89aFFUsf0HCdwSok=
+github.com/appaegis/golang-common v0.0.0-20230317035809-406f6a313610/go.mod h1:m/EC/E58QVab60rTT+l51hQkAwdimRkEIW6mk0CXO4A=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/aws/aws-lambda-go v1.27.0 h1:aLzrJwdyHoF1A18YeVdJjX8Ixkd+bpogdxVInvHcWjM=

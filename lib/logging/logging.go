@@ -25,21 +25,26 @@ var (
 
 // Action is user action, the log object
 type Action struct {
-	ProductType  string   `json:"product_type"`
-	AppType      string   `json:"app_type"`
-	AppTag       string   `json:"app_tag"`
-	TenantID     string   `json:"tenantID"`
-	AppID        string   `json:"appID"`
-	AppName      string   `json:"appName"`
-	RoleIDs      []string `json:"roleIDs,omitempty"`
-	UserEmail    string   `json:"userEmail"`
-	Username     string   `json:"username"`
-	RemotePath   string   `json:"remotePath"`
-	FileCount    int      `json:"fileCount,omitempty"`
-	Files        []string `json:"files"`
-	ClientIP     string   `json:"client_ip"`
-	TargetIp     string   `json:"dest"`
-	RdpSessionId string   `json:"rdpSessionId"`
+	ProductType       string   `json:"product_type"`
+	AppType           string   `json:"app_type"`
+	AppTag            string   `json:"app_tag"`
+	TenantID          string   `json:"tenantID"`
+	AppID             string   `json:"appID"`
+	AppName           string   `json:"appName"`
+	RoleIDs           []string `json:"roleIDs,omitempty"`
+	UserEmail         string   `json:"userEmail"`
+	Username          string   `json:"username"`
+	RemotePath        string   `json:"remotePath"`
+	FileCount         int      `json:"fileCount,omitempty"`
+	Files             []string `json:"files"`
+	ClientIP          string   `json:"client_ip"`
+	TargetIp          string   `json:"dest"`
+	RdpSessionId      string   `json:"rdpSessionId"`
+	Recording         bool     `json:"recording"`
+	PolicyID          string   `json:"policyid"`
+	PolicyName        string   `json:"policyname"`
+	MonitorPolicyId   string   `json:"monitorpolicyid"`
+	MonitorPolicyName string   `json:"monitorpolicyname"`
 }
 
 type LoggingInfo struct {
@@ -51,6 +56,7 @@ type LoggingInfo struct {
 	EnableRecording bool      `json:"enableRecording"`
 	StartTime       time.Time `json:"startTime"`
 	Sku             string    `json:"sku"`
+	SessionId       string    `json:"sessionid"`
 }
 
 func (l *LoggingInfo) GetRecordingFileName() string {
@@ -97,7 +103,7 @@ func NewSessionRecordingLogger() (*zap.Logger, error) {
 	return cfg.Build()
 }
 
-func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageType, region string) {
+func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageType, region, sessionid string) {
 	recordingLogger.Info(
 		"rdp-session",
 		zap.Time("ts", loggingInfo.StartTime),
@@ -110,6 +116,7 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageTyp
 		zap.String("client_ip", loggingInfo.ClientIp),
 		zap.String("key_id", keyId),
 		zap.String("storage_type", storageType),
+		zap.String("sessionid", sessionid),
 	)
 }
 
