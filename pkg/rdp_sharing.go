@@ -306,19 +306,13 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 func LeaveRoom(sessionId, user, tenantId, appId string) error {
 	lock.Lock()
 	defer lock.Unlock()
-	ses, _ := SessionDataStore.Get(sessionId).(*SessionCommonData)
 
 	logging.Log(logging.Action{
-		AppTag:            "rdp.leave",
-		RdpSessionId:      sessionId,
-		UserEmail:         user,
-		AppID:             appId,
-		TenantID:          tenantId,
-		Recording:         ses.Recording,
-		PolicyID:          ses.PolicyID,
-		PolicyName:        ses.PolicyName,
-		MonitorPolicyId:   ses.MonitorPolicyId,
-		MonitorPolicyName: ses.MonitorPolicyName,
+		AppTag:       "rdp.leave",
+		RdpSessionId: sessionId,
+		UserEmail:    user,
+		AppID:        appId,
+		TenantID:     tenantId,
 	})
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
