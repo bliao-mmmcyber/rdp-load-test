@@ -213,6 +213,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		sessionId = shareSessionId
+		ses, _ := SessionDataStore.Get(sessionId).(*SessionCommonData)
 		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
 		if e != nil {
 			logrus.Errorf("join to room failed %s", sessionId)
