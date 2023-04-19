@@ -16,6 +16,15 @@ FROM alpine:latest
 ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-muslc-amd64 /bin/tini
 RUN chmod +x /bin/tini
 
+# install aws encryption sdk cli
+RUN apk add gcc
+ENV PYTHONUNBUFFERED=1
+RUN apk add --update --no-cache python3 && ln -sf python3 /usr/bin/python
+RUN python3 -m ensurepip
+RUN pip3 install --no-cache --upgrade pip setuptools
+RUN apk add python3-dev musl-dev libffi-dev
+RUN pip install --upgrade aws-encryption-sdk-cli
+
 COPY --from=build-env /go/src/app/bin/guac /home/appaegis/bin/guac
 ADD assets /home/appaegis/guac-assets
 
