@@ -11,17 +11,10 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN make go.build
 
 #---------
-FROM alpine:latest
-
-ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-muslc-amd64 /bin/tini
-RUN chmod +x /bin/tini
+FROM 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/golang-common/alpine
 
 COPY --from=build-env /go/src/app/bin/guac /home/appaegis/bin/guac
 ADD assets /home/appaegis/guac-assets
-
-ENV ETCD_ENDPOINTS=http://127.0.0.1:2379
-ENV ETCD_USERNAME=root
-ENV ETCD_PASSWORD=Appaegis1234
 
 RUN mkdir -p /var/log/appaegis
 WORKDIR /home/appaegis
