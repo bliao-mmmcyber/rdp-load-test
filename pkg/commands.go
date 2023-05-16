@@ -7,10 +7,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dlp"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/monitorpolicy"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
 )
@@ -32,6 +34,7 @@ func init() {
 	commands[DLP_UPLOAD] = DlpUploadCommand{}
 	commands[LOG_DOWNLOAD] = LogDownloadCommand{}
 	commands[DOWNLOAD_CHECK] = DownloadCheckCommand{}
+	commands[UPLOAD_CHECK] = UploadCheckCommand{}
 	commands[SET_PERMISSONS] = SetPermissions{}
 	commands[SEARCH_USER] = SearchUserCommand{}
 	commands[REMOVE_SHARE] = RemoveShareCommand{}
@@ -338,6 +341,7 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	if len(fileTokens) > 0 {
 		fileName = fileTokens[len(fileTokens)-1]
 	}
+
 	logging.Log(logging.Action{
 		AppTag:            "rdp.download",
 		RdpSessionId:      ses.RdpSessionId,
@@ -434,29 +438,47 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 type LogDownloadCommand struct{}
 
 func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
+	logrus.Infof("log download command runs")
 	fileCount, err := strconv.Atoi(instruction.Args[2])
 	if err != nil {
 		fileCount = 1
 	}
-	logging.Log(logging.Action{
-		AppTag:            "rdp.download",
-		TenantID:          ses.TenantID,
-		UserEmail:         ses.Email,
-		AppID:             ses.AppID,
-		RoleIDs:           ses.RoleIDs,
-		FileCount:         fileCount,
-		ClientIP:          ses.ClientIP,
-		RdpSessionId:      ses.RdpSessionId,
-		Recording:         ses.Recording,
-		PolicyID:          ses.PolicyID,
-		PolicyName:        ses.PolicyName,
-		MonitorPolicyId:   ses.MonitorPolicyId,
-		MonitorPolicyName: ses.MonitorPolicyName,
-	})
-	IncrAlertRuleSessionCountByNumber(ses, "download", fileCount)
+
 	result := J{
 		"ok":    true,
 		"count": fileCount,
+	}
+	data, _ := json.Marshal(result)
+	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
+}
+
+type UploadCheckCommand struct{}
+
+func (c UploadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
+	fileCount, e := strconv.Atoi(instruction.Args[2])
+	if e != nil {
+		fileCount = 1
+	}
+	var result J
+	action := monitorpolicy.CheckMonitorRule(&monitorpolicy.CheckActionRequest{
+		AppId:       ses.AppID,
+		Action:      "upload",
+		User:        ses.Email,
+		Country:     ses.ClientIsoCountry,
+		ActionCount: fileCount,
+		Now:         time.Now(),
+		Rules:       ses.MonitorRules,
+	})
+	logrus.Infof("check upload rule result: %s", action)
+	if action == "deny" {
+		result = J{
+			"ok": false,
+		}
+	} else {
+		result = J{
+			"ok":     true,
+			"prompt": action == "confirm",
+		}
 	}
 	data, _ := json.Marshal(result)
 	return NewInstruction(APPAEGIS_RESP_OP, instruction.Args[0], string(data))
@@ -470,15 +492,24 @@ func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonD
 		fileCount = 1
 	}
 	var result J
-	ok, block := CheckAlertRule(ses, "download", fileCount)
-	if !ok && block {
+	action := monitorpolicy.CheckMonitorRule(&monitorpolicy.CheckActionRequest{
+		AppId:       ses.AppID,
+		Action:      "download",
+		User:        ses.Email,
+		Country:     ses.ClientIsoCountry,
+		ActionCount: fileCount,
+		Now:         time.Now(),
+		Rules:       ses.MonitorRules,
+	})
+	logrus.Infof("check rule result: %s", action)
+	if action == "deny" {
 		result = J{
 			"ok": false,
 		}
 	} else {
 		result = J{
 			"ok":     true,
-			"prompt": !ok,
+			"prompt": action == "confirm",
 		}
 	}
 	data, _ := json.Marshal(result)

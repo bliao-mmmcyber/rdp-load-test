@@ -35,7 +35,9 @@ func TestSingleAdmin(t *testing.T) {
 	db := new(mocks.DbAccess)
 	dbAccess = db
 
-	NewRdpSessionRoom("singleAdmin", "user1", nil, "", true, "appId", "appName", loggingInfo)
+	sessionId := "singleAdmin"
+	SessionDataStore.Set(sessionId, &SessionCommonData{})
+	NewRdpSessionRoom(sessionId, "user1", nil, "", true, "appId", "appName", loggingInfo)
 	db.On("DeleteRdpSession", mock.Anything).Return(nil)
 	_ = LeaveRoom("singleAdmin", "user1", "", "")
 	assert.Equal(t, 0, len(rdpRooms))
@@ -65,6 +67,7 @@ func TestSingleAdminLeave(t *testing.T) {
 	_, _ = JoinRoom("1", "user2", ws, "mouse")
 
 	ws.On("Close").Return(nil)
+	SessionDataStore.Set("1", &SessionCommonData{})
 	_ = LeaveRoom("1", "user1", "", "")
 
 	assert.Equal(t, 0, len(rdpRooms))
