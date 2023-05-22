@@ -71,7 +71,7 @@ func PeekFromQueue(index int) *logging.LoggingInfo {
 
 func PopFromQueue(index int) {
 	logrus.Infof("pop from queue %d", index)
-	e := q.PopFromQueue(GetQueueName(index))
+	_, e := q.PopFromQueue(GetQueueName(index))
 	if e != nil {
 		logrus.Infof("pop e: %v", e)
 	}

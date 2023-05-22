@@ -14,6 +14,7 @@ import (
 
 	clientConfig "github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/monitorpolicy"
 	"github.com/appaegis/golang-common/pkg/storage"
 	"github.com/appaegis/golang-common/pkg/utils"
 	"github.com/gorilla/websocket"
@@ -148,7 +149,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		// return nil, fmt.Errorf("appauthz cookie not found")
 	}
 
-	// AC-938: alert rules
 	tenantId := query.Get("tenantId")
 	roleIds := query.Get("roleIds")
 	appId := query.Get("appId")
@@ -185,7 +185,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		config.Parameters["recording-name"] = loggingInfo.GetRecordingFileName()
 	}
 
-	alertRulesString := query.Get("alertRules")
 	shareSessionID := query.Get("shareSessionId")
 	if room, ok := guac.GetRoomByAppIdAndCreator(appId, userId); ok {
 		logrus.Infof("host user %s join to existing session %s", userId, room.SessionId)
@@ -203,8 +202,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.ClientIP = clientIp
 		session.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
 		session.AppName = appName
-		session.RuleIDs = make(map[string][]string)
-		session.Rules = make(map[string]*guac.AlertRuleData)
 		session.RdpSessionId = sessionDataKey
 
 		policy := DBclient.QueryPolicyEntryById(app.ResourceEntryPolicyID)
@@ -216,26 +213,13 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 			monitorPolicy := DBclient.QueryMonitorPolicyEntryById(app.MonitorPolicyEntryId)
 			session.MonitorPolicyId = monitorPolicy.ID
 			session.MonitorPolicyName = monitorPolicy.Name
+			session.MonitorRules = monitorpolicy.QueryMonitorRuleForUser(monitorPolicy.ID, userId)
 		}
 		_, fail := storage.GetStorageByTenantId(tenantId, clientConfig.GetRegion())
 		if app.EnableRecording && !fail {
 			session.Recording = true
 		}
 
-		alertRules := []guac.AlertRuleData{}
-		if err := json.Unmarshal([]byte(alertRulesString), &alertRules); err != nil {
-			logrus.Infof("alertRulesString %s", alertRulesString)
-			logrus.Errorf("failed to unmarshal alert rules %s", err.Error())
-		} else {
-			logrus.Printf("role ids: %v", roleIds)
-			for i := range alertRules {
-				data := alertRules[i]
-				session.Rules[data.RuleID] = &data
-				for _, action := range data.EventTypes {
-					session.RuleIDs[action] = append(session.RuleIDs[action], data.RuleID)
-				}
-			}
-		}
 		guac.SessionDataStore.Set(sessionDataKey, session)
 	} else { // join a existing rdp session
 		sessionData := guac.SessionDataStore.Get(shareSessionID)

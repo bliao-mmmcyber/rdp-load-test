@@ -18,6 +18,7 @@ const (
 	REPORT_CONTEXT  = "report-context"
 	LOG_DOWNLOAD    = "log-download"
 	DOWNLOAD_CHECK  = "download-check"
+	UPLOAD_CHECK    = "upload-check"
 	SET_PERMISSONS  = "set-permissions"
 	MEMBERS         = "members"
 	SEARCH_USER     = "search-user"
