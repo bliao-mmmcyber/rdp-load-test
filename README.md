@@ -110,11 +110,11 @@ If you want to update your image, pull the image and restart `guac/transcoding`
 
 
 ```
-dokcer pull 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:<BRANCH_NAME>
+docker pull 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac:<BRANCH_NAME>
 docker-compose stop guac
 docker-compose up -d guac
 
-dokcer pull 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac/transcoding:<BRANCH_NAME>
+docker pull 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/guac/transcoding:<BRANCH_NAME>
 docker-compose stop transcoding
 docker-compose up -d transcoding
 
