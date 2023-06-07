@@ -45,6 +45,8 @@ type Action struct {
 	PolicyName        string   `json:"policyname"`
 	MonitorPolicyId   string   `json:"monitorpolicyid"`
 	MonitorPolicyName string   `json:"monitorpolicyname"`
+	BlockPolicyType   string   `json:"blockPolicyType"`
+	BlockReason       string   `json:"blockReason"`
 }
 
 type LoggingInfo struct {
