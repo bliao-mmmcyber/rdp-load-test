@@ -13,7 +13,7 @@ import (
 
 const (
 	CharSet  = "UTF-8"
-	Subject  = "Appaegis RDP application screen share"
+	Subject  = "Mammoth Cyber RDP application screen share"
 	HtmlBody = `
 <html>
 	<head></head>
@@ -131,7 +131,7 @@ func (s RdpMailService) SendInvitation(to string, inviter string, link string, a
 				aws.String(to),
 			},
 		},
-		Source: aws.String("account@appaegis.com"),
+		Source: aws.String("account@mammothcyber.com"),
 		Message: &ses.Message{
 			Subject: &ses.Content{
 				Charset: aws.String(CharSet),
