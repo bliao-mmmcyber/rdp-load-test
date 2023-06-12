@@ -27,6 +27,39 @@ var mailService MailService = RdpMailService{}
 
 var commands = make(map[string]Command)
 
+type BlockEvent struct {
+	Tag             string
+	RemotePath      string
+	Session         *SessionCommonData
+	Files           []string
+	FileCount       int
+	BlockPolicyType string
+	BlockReason     string
+}
+
+func sendBlockEvent(event BlockEvent) {
+	logging.Log(logging.Action{
+		AppTag:            event.Tag,
+		RdpSessionId:      event.Session.RdpSessionId,
+		TenantID:          event.Session.TenantID,
+		AppID:             event.Session.AppID,
+		AppName:           event.Session.AppName,
+		RoleIDs:           event.Session.RoleIDs,
+		UserEmail:         event.Session.Email,
+		ClientIP:          event.Session.ClientIP,
+		RemotePath:        event.RemotePath,
+		Files:             event.Files,
+		FileCount:         event.FileCount,
+		Recording:         event.Session.Recording,
+		PolicyID:          event.Session.PolicyID,
+		PolicyName:        event.Session.PolicyName,
+		MonitorPolicyId:   event.Session.MonitorPolicyId,
+		MonitorPolicyName: event.Session.MonitorPolicyName,
+		BlockPolicyType:   event.BlockPolicyType,
+		BlockReason:       event.BlockReason,
+	})
+}
+
 func init() {
 	commands[SHARE_SESSION] = RequestSharingCommand{}
 	commands[REPORT_CONTEXT] = ReportContextCommand{}
@@ -471,6 +504,18 @@ func (c UploadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	})
 	logrus.Infof("check upload rule result: %s", action)
 	if action == "deny" {
+		fileName := instruction.Args[2]
+		event := BlockEvent{
+			Tag:             "rdp.upload.block",
+			Files:           []string{fileName},
+			FileCount:       1,
+			RemotePath:      "Filesystem on Appaegis RDP",
+			Session:         ses,
+			BlockPolicyType: "monitorpolicy",
+			BlockReason:     "Out of quota",
+		}
+		sendBlockEvent(event)
+
 		result = J{
 			"ok": false,
 		}
@@ -503,6 +548,22 @@ func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonD
 	})
 	logrus.Infof("check rule result: %s", action)
 	if action == "deny" {
+		filePath := instruction.Args[2]
+		fileTokens := strings.Split(filePath, "/")
+		fileName := fileTokens[0]
+		if len(fileTokens) > 0 {
+			fileName = fileTokens[len(fileTokens)-1]
+		}
+		event := BlockEvent{
+			Tag:             "rdp.download.block",
+			Files:           []string{fileName},
+			FileCount:       1,
+			RemotePath:      "Filesystem on Appaegis RDP",
+			Session:         ses,
+			BlockPolicyType: "monitorpolicy",
+			BlockReason:     "Out of quota",
+		}
+		sendBlockEvent(event)
 		result = J{
 			"ok": false,
 		}
