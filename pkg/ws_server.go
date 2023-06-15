@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
@@ -198,7 +199,9 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Id:        sessionId,
 			Owner:     userId,
 			TenantId:  tunnel.GetLoggingInfo().TenantId,
+			Region:    config.GetRegion(),
 			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		})
 		if e != nil {
 			logrus.Errorf("save active rdp session failed")
