@@ -381,7 +381,7 @@ func GetDrivePathInEFS(tenantID, appID, userID string) string {
 type J map[string]interface{}
 
 func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string) {
-	logrus.Printf("receive: %s\n", cmd)
+	logrus.Printf("receive: %s", cmd)
 	instruction, err := Parse(cmd)
 	if err != nil {
 		logrus.Println("Instruction parse error: ", err)
