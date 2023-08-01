@@ -308,7 +308,7 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 	for {
 		ins, err := guacd.ReadSome()
 		if err != nil {
-			logrus.Traceln("Error reading from guacd", err)
+			logrus.Errorf("Error reading from guacd, e %v", err)
 			return
 		}
 
@@ -318,20 +318,18 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 		}
 
 		if _, err = buf.Write(ins); err != nil {
-			logrus.Traceln("Failed to buffer guacd to ws", err)
+			logrus.Errorf("Failed to buffer guacd to ws, e %v", err)
 			return
 		}
 
 		// if the buffer has more data in it or we've reached the max buffer size, send the data and reset
 		if !guacd.Available() || buf.Len() >= MaxGuacMessage {
 			bufbytes := buf.Bytes()
-			// bufString := string(bufbytes)
-			// logrus.Debug("got buffer:", bufString)
 			if err = ws.WriteMessage(1, bufbytes); err != nil {
+				logrus.Errorf("Failed sending message to ws %v", err)
 				if err == websocket.ErrCloseSent {
 					return
 				}
-				logrus.Errorf("Failed sending message to ws %v", err)
 				return
 			}
 			buf.Reset()

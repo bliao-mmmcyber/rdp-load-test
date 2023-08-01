@@ -10,7 +10,7 @@ import (
 
 func TestInstructionReader_ReadSome(t *testing.T) {
 	conn := &fakeConn{
-		ToRead: []byte("4.copy,2.ab;4.copy"),
+		ToRead: []byte("4.copy,2.中文;4.copy"),
 	}
 	stream := NewStream(conn, 1*time.Minute)
 
@@ -18,7 +18,7 @@ func TestInstructionReader_ReadSome(t *testing.T) {
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
-	if !bytes.Equal(ins, []byte("4.copy,2.ab;")) {
+	if !bytes.Equal(ins, []byte("4.copy,2.中文;")) {
 		t.Error("Unexpected bytes returned")
 	}
 	if !stream.Available() {
