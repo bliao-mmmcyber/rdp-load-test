@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"unicode/utf8"
 
 	"github.com/sirupsen/logrus"
 )
@@ -97,9 +98,16 @@ func (s *Stream) ReadSome() (instruction []byte, err error) {
 					break parseLoop
 				}
 				// Check if element present in buffer
-				terminator := s.buffer[i+elementLength]
+				for c := 0; c < elementLength; c++ {
+					_, size := utf8.DecodeRune(s.buffer[i:])
+					// logrus.Infof("rune %s, size %d", string(r), size)
+					i += size
+				}
+				// terminator := s.buffer[i+elementLength]
+				terminator := s.buffer[i]
 				// Move to character after terminator
-				i += elementLength + 1
+				// i += elementLength + 1
+				i += 1
 
 				// Reset length
 				elementLength = 0

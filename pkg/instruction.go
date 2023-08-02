@@ -3,6 +3,7 @@ package guac
 import (
 	"fmt"
 	"strconv"
+	"unicode/utf8"
 )
 
 // Instruction represents a Guacamole instruction
@@ -67,13 +68,19 @@ func Parse(data []byte) (*Instruction, error) {
 
 		// Parse element from just after period
 		elementStart = lengthEnd + 1
-		element := string(data[elementStart : elementStart+length])
+		element := make([]byte, 0)
+		for i := 0; i < length; i++ {
+			r, size := utf8.DecodeRune(data[elementStart:])
+			element = utf8.AppendRune(element, r)
+			elementStart += size
+		}
+		// element := string(data[elementStart : elementStart+length])
 
 		// Append element to list of elements
-		elements = append(elements, element)
+		elements = append(elements, string(element))
 
 		// ReadSome terminator after element
-		elementStart += length
+		// elementStart += elementLength
 		terminator := data[elementStart]
 
 		// Continue reading instructions after terminator

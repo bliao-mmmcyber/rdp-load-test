@@ -7,8 +7,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
 )
+
+func TestParse(t *testing.T) {
+	cmd := "5.AACMD,36.33bb3285-716c-4a9b-bd3d-5d929cd021d3,10.dlp-upload,39.政府零信任網路身分鑑別功能符合性驗證檢核表_V1.3_1110729.docx;"
+	i, e := Parse([]byte(cmd))
+	if e != nil {
+		t.Error(e)
+	}
+	logrus.Infof("%s", i.Opcode)
+}
 
 func TestWebsocketServer_guacdToWs(t *testing.T) {
 	const expBytes = `5.audio,1.1,31.audio/L16;rate=44100,channels=2;
