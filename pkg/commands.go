@@ -7,9 +7,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/appaegis/golang-common/pkg/config"
+	"github.com/appaegis/golang-common/pkg/constants"
 	"github.com/appaegis/golang-common/pkg/dlp"
 	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/appaegis/golang-common/pkg/monitorpolicy"
@@ -28,7 +30,7 @@ var mailService MailService = RdpMailService{}
 var commands = make(map[string]Command)
 
 type BlockEvent struct {
-	Tag             string
+	Event           constants.PolicyV2Event
 	RemotePath      string
 	Session         *SessionCommonData
 	Files           []string
@@ -37,9 +39,70 @@ type BlockEvent struct {
 	BlockReason     string
 }
 
+func SendEvent(action string, payload logging.Action) {
+	wg := sync.WaitGroup{}
+
+	payload.AppTag = fmt.Sprintf("rdp.%s", action)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered in sendBlockEvent", r)
+			}
+		}()
+
+		event := constants.PolicyV2EventAccess
+		switch action {
+		case "upload":
+			event = constants.PolicyV2EventUpload
+		case "download":
+			event = constants.PolicyV2EventDownload
+		}
+
+		metas := dynamodbcli.QueryPolicyMetaByAstraea(
+			payload.AppID,
+			payload.UserEmail,
+			payload.TenantID,
+			string(constants.PolicyV2ResourceTypeRdp),
+		)
+		if meta, ok := (*metas)[event]; ok {
+			payload.PolicyID = meta.ID
+			payload.PolicyName = meta.Name
+		}
+	}()
+	wg.Wait()
+
+	logging.Log(payload)
+}
+
 func sendBlockEvent(event BlockEvent) {
+	wg := sync.WaitGroup{}
+	policyMeta := dynamodbcli.PolicyV2Meta{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered in sendBlockEvent", r)
+			}
+		}()
+		metas := dynamodbcli.QueryPolicyMetaByAstraea(
+			event.Session.AppID,
+			event.Session.Email,
+			event.Session.TenantID,
+			string(constants.PolicyV2ResourceTypeRdp),
+		)
+		if meta, ok := (*metas)[event.Event]; ok {
+			policyMeta = meta
+		}
+	}()
+	wg.Wait()
+
 	logging.Log(logging.Action{
-		AppTag:            event.Tag,
+		AppTag:            fmt.Sprintf("rdp.%s.block", event.Event),
 		RdpSessionId:      event.Session.RdpSessionId,
 		TenantID:          event.Session.TenantID,
 		AppID:             event.Session.AppID,
@@ -51,8 +114,8 @@ func sendBlockEvent(event BlockEvent) {
 		Files:             event.Files,
 		FileCount:         event.FileCount,
 		Recording:         event.Session.Recording,
-		PolicyID:          event.Session.PolicyID,
-		PolicyName:        event.Session.PolicyName,
+		PolicyID:          policyMeta.ID,
+		PolicyName:        policyMeta.Name,
 		MonitorPolicyId:   event.Session.MonitorPolicyId,
 		MonitorPolicyName: event.Session.MonitorPolicyName,
 		BlockPolicyType:   event.BlockPolicyType,
@@ -375,8 +438,7 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		fileName = fileTokens[len(fileTokens)-1]
 	}
 
-	logging.Log(logging.Action{
-		AppTag:            "rdp.download",
+	go SendEvent("download", logging.Action{
 		RdpSessionId:      ses.RdpSessionId,
 		TenantID:          ses.TenantID,
 		AppID:             ses.AppID,
@@ -388,11 +450,10 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 		Files:             []string{fileName},
 		FileCount:         1,
 		Recording:         ses.Recording,
-		PolicyID:          ses.PolicyID,
-		PolicyName:        ses.PolicyName,
 		MonitorPolicyId:   ses.MonitorPolicyId,
 		MonitorPolicyName: ses.MonitorPolicyName,
 	})
+
 	fullPath := fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath)
 	if info, e := os.Stat(fullPath); e == nil {
 		if info.Size() == 0 {
@@ -430,8 +491,7 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 	fileName := instruction.Args[2]
 	logrus.Debug("dlp-upload: ", fileName)
 
-	logging.Log(logging.Action{
-		AppTag:            "rdp.upload",
+	go SendEvent("upload", logging.Action{
 		RdpSessionId:      ses.RdpSessionId,
 		TenantID:          ses.TenantID,
 		AppID:             ses.AppID,
@@ -443,8 +503,6 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 		Files:             []string{fileName},
 		FileCount:         1,
 		Recording:         ses.Recording,
-		PolicyID:          ses.PolicyID,
-		PolicyName:        ses.PolicyName,
 		MonitorPolicyId:   ses.MonitorPolicyId,
 		MonitorPolicyName: ses.MonitorPolicyName,
 	})
@@ -506,7 +564,7 @@ func (c UploadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	if action == "deny" {
 		fileName := instruction.Args[2]
 		event := BlockEvent{
-			Tag:             "rdp.upload.block",
+			Event:           constants.PolicyV2EventUpload,
 			Files:           []string{fileName},
 			FileCount:       1,
 			RemotePath:      "Filesystem on Appaegis RDP",
@@ -514,7 +572,7 @@ func (c UploadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 			BlockPolicyType: "monitorpolicy",
 			BlockReason:     "Out of quota",
 		}
-		sendBlockEvent(event)
+		go sendBlockEvent(event)
 
 		result = J{
 			"ok": false,
@@ -555,7 +613,7 @@ func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonD
 			fileName = fileTokens[len(fileTokens)-1]
 		}
 		event := BlockEvent{
-			Tag:             "rdp.download.block",
+			Event:           constants.PolicyV2EventDownload,
 			Files:           []string{fileName},
 			FileCount:       1,
 			RemotePath:      "Filesystem on Appaegis RDP",
@@ -563,7 +621,7 @@ func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonD
 			BlockPolicyType: "monitorpolicy",
 			BlockReason:     "Out of quota",
 		}
-		sendBlockEvent(event)
+		go sendBlockEvent(event)
 		result = J{
 			"ok": false,
 		}

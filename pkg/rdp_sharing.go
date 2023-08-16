@@ -362,8 +362,7 @@ func closeRoom(room *RdpSessionRoom) {
 	room.loggingInfo.SessionId = ses.RdpSessionId
 	AddEncodeRecoding(*room.loggingInfo)
 
-	logging.Log(logging.Action{
-		AppTag:            "rdp.exit",
+	go SendEvent("exit", logging.Action{
 		RdpSessionId:      room.SessionId,
 		UserEmail:         room.Creator,
 		AppID:             room.AppId,
@@ -371,8 +370,6 @@ func closeRoom(room *RdpSessionRoom) {
 		TenantID:          room.TenantId,
 		ClientIP:          room.ClientIp,
 		Recording:         ses.Recording,
-		PolicyID:          ses.PolicyID,
-		PolicyName:        ses.PolicyName,
 		MonitorPolicyId:   ses.MonitorPolicyId,
 		MonitorPolicyName: ses.MonitorPolicyName,
 	})

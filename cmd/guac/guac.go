@@ -204,11 +204,6 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.AppName = appName
 		session.RdpSessionId = sessionDataKey
 
-		policy := DBclient.QueryPolicyEntryById(app.ResourceEntryPolicyID)
-		if policy != nil {
-			session.PolicyID = policy.ID
-			session.PolicyName = policy.Name
-		}
 		if app.MonitorPolicyEntryId != "" {
 			monitorPolicy := DBclient.QueryMonitorPolicyEntryById(app.MonitorPolicyEntryId)
 			session.MonitorPolicyId = monitorPolicy.ID

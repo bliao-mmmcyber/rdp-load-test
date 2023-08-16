@@ -31,8 +31,6 @@ type SessionCommonData struct {
 	SessionStartTime int64
 
 	Recording         bool
-	PolicyID          string
-	PolicyName        string
 	MonitorPolicyId   string
 	MonitorPolicyName string
 	MonitorRules      map[string]*dynamodbcli.MonitorPolicyRule

@@ -177,8 +177,8 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ses, _ := SessionDataStore.Get(sessionId).(*SessionCommonData)
 	if shareSessionId == "" { // rdp session owner connected
 		clientIp := strings.Split(query.Get("clientIp"), ":")[0]
-		logging.Log(logging.Action{
-			AppTag:            "rdp.open",
+
+		go SendEvent("open", logging.Action{
 			RdpSessionId:      sessionId,
 			UserEmail:         userId,
 			Username:          userName,
@@ -189,8 +189,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ClientIP:          clientIp,
 			TargetIp:          host,
 			Recording:         ses.Recording,
-			PolicyID:          ses.PolicyID,
-			PolicyName:        ses.PolicyName,
 			MonitorPolicyId:   ses.MonitorPolicyId,
 			MonitorPolicyName: ses.MonitorPolicyName,
 		})
@@ -223,16 +221,13 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if room, ok := GetRdpSessionRoom(sessionId); ok {
-			logging.Log(logging.Action{
-				AppTag:            "rdp.join",
+			go SendEvent("join", logging.Action{
 				RdpSessionId:      sessionId,
 				UserEmail:         userId,
 				AppID:             room.AppId,
 				TenantID:          room.TenantId,
 				ClientIP:          strings.Split(query.Get("clientIp"), ":")[0],
 				Recording:         ses.Recording,
-				PolicyID:          ses.PolicyID,
-				PolicyName:        ses.PolicyName,
 				MonitorPolicyId:   ses.MonitorPolicyId,
 				MonitorPolicyName: ses.MonitorPolicyName,
 			})
