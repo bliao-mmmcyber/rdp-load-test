@@ -1,3 +1,6 @@
 [submodule "mk-common"]
 	path = mk-common
 	url = https://github.com/appaegis/mk-common.git
+[submodule "internal/golang-common"]
+	path = internal/golang-common
+	url = https://github.com/appaegis/golang-common.git
