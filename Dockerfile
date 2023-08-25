@@ -1,11 +1,8 @@
-ARG golang_builder_base
 ARG golang_ver
-FROM $golang_builder_base as base
 FROM golang:$golang_ver as build-env
 
+COPY . /go/src/app
 WORKDIR /go/src/app
-COPY --from=base /go/src/golang-common /go/src/golang-common
-ADD . .
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN make go.build
