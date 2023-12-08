@@ -1,0 +1,17 @@
+---
+name: check src branch name
+
+on:
+  pull_request:
+    branches: [rel-3*]
+  workflow_dispatch:
+
+jobs:
+  check-src-branch-name:
+    uses: appaegis/gitaction-lib/.github/workflows/check-pr-source-branch-name.yaml@main
+    with:
+      repository: ${{ github.repository }}
+      target_branch: ${{ github.event.pull_request.base.ref }}
+    secrets:
+      username: ${{ secrets.GIT_USER }}
+      token: ${{ secrets.ORG_TOKEN }}
