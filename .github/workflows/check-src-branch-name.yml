@@ -8,10 +8,11 @@ on:
 
 jobs:
   check-src-branch-name:
-    uses: appaegis/gitaction-lib/.github/workflows/check-pr-source-branch-name.yaml@main
+    uses: appaegis/gitaction-lib/.github/workflows/check-pr-source-branch-name.yaml@ACDO-264
     with:
       repository: ${{ github.repository }}
       target_branch: ${{ github.event.pull_request.base.ref }}
+      pr_title: ${{ github.event.pull_request.title  }}
     secrets:
       username: ${{ secrets.GIT_USER }}
       token: ${{ secrets.ORG_TOKEN }}
