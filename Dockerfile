@@ -1,4 +1,4 @@
-ARG golang_ver
+ARG golang_ver GIT_COMMIT
 FROM golang:$golang_ver as build-env
 
 COPY . /go/src/app
@@ -9,6 +9,9 @@ RUN make go.build
 
 #---------
 FROM 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/golang-common/alpine
+
+ARG GIT_COMMIT
+ENV GIT_COMMIT=${GIT_COMMIT}
 
 COPY --from=build-env /go/src/app/bin/guac /home/appaegis/bin/guac
 ADD assets /home/appaegis/guac-assets
