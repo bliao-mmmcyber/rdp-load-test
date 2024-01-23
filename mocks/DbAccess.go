@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	dynamodbcli "github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -28,15 +28,15 @@ func (_m *DbAccess) DeleteRdpSession(sessionId string) error {
 }
 
 // GetInviteeByUserIdAndSessionId provides a mock function with given fields: userId, sessionId
-func (_m *DbAccess) GetInviteeByUserIdAndSessionId(userId string, sessionId string) (*dynamodbcli.ActiveRdpSessionInvitee, error) {
+func (_m *DbAccess) GetInviteeByUserIdAndSessionId(userId string, sessionId string) (*schema.ActiveRdpSessionInvitee, error) {
 	ret := _m.Called(userId, sessionId)
 
-	var r0 *dynamodbcli.ActiveRdpSessionInvitee
-	if rf, ok := ret.Get(0).(func(string, string) *dynamodbcli.ActiveRdpSessionInvitee); ok {
+	var r0 *schema.ActiveRdpSessionInvitee
+	if rf, ok := ret.Get(0).(func(string, string) *schema.ActiveRdpSessionInvitee); ok {
 		r0 = rf(userId, sessionId)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*dynamodbcli.ActiveRdpSessionInvitee)
+			r0 = ret.Get(0).(*schema.ActiveRdpSessionInvitee)
 		}
 	}
 
@@ -51,29 +51,29 @@ func (_m *DbAccess) GetInviteeByUserIdAndSessionId(userId string, sessionId stri
 }
 
 // GetTenantById provides a mock function with given fields: tenantId
-func (_m *DbAccess) GetTenantById(tenantId string) dynamodbcli.TenantEntry {
+func (_m *DbAccess) GetTenantById(tenantId string) schema.TenantEntry {
 	ret := _m.Called(tenantId)
 
-	var r0 dynamodbcli.TenantEntry
-	if rf, ok := ret.Get(0).(func(string) dynamodbcli.TenantEntry); ok {
+	var r0 schema.TenantEntry
+	if rf, ok := ret.Get(0).(func(string) schema.TenantEntry); ok {
 		r0 = rf(tenantId)
 	} else {
-		r0 = ret.Get(0).(dynamodbcli.TenantEntry)
+		r0 = ret.Get(0).(schema.TenantEntry)
 	}
 
 	return r0
 }
 
 // QueryUsersByTenantAndUserPrefix provides a mock function with given fields: tenantId, userPrefix
-func (_m *DbAccess) QueryUsersByTenantAndUserPrefix(tenantId string, userPrefix string) ([]dynamodbcli.UserEntry, error) {
+func (_m *DbAccess) QueryUsersByTenantAndUserPrefix(tenantId string, userPrefix string) ([]schema.UserEntry, error) {
 	ret := _m.Called(tenantId, userPrefix)
 
-	var r0 []dynamodbcli.UserEntry
-	if rf, ok := ret.Get(0).(func(string, string) []dynamodbcli.UserEntry); ok {
+	var r0 []schema.UserEntry
+	if rf, ok := ret.Get(0).(func(string, string) []schema.UserEntry); ok {
 		r0 = rf(tenantId, userPrefix)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]dynamodbcli.UserEntry)
+			r0 = ret.Get(0).([]schema.UserEntry)
 		}
 	}
 
@@ -102,11 +102,11 @@ func (_m *DbAccess) RemoveInvitee(sessionId string, user string) error {
 }
 
 // SaveActiveRdpSession provides a mock function with given fields: session
-func (_m *DbAccess) SaveActiveRdpSession(session *dynamodbcli.ActiveRdpSession) error {
+func (_m *DbAccess) SaveActiveRdpSession(session *schema.ActiveRdpSession) error {
 	ret := _m.Called(session)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*dynamodbcli.ActiveRdpSession) error); ok {
+	if rf, ok := ret.Get(0).(func(*schema.ActiveRdpSession) error); ok {
 		r0 = rf(session)
 	} else {
 		r0 = ret.Error(0)

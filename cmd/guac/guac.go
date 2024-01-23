@@ -13,7 +13,7 @@ import (
 	"time"
 
 	clientConfig "github.com/appaegis/golang-common/pkg/config"
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/db_data/adaptor"
 	"github.com/appaegis/golang-common/pkg/monitorpolicy"
 	"github.com/appaegis/golang-common/pkg/storage"
 	"github.com/appaegis/golang-common/pkg/utils"
@@ -155,7 +155,8 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	userId := query.Get("userId")
 	appName := query.Get("appName")
 	var permissions string
-	if actions := dynamodbcli.QueryPolicyByAstraea(appId, userId).Actions; actions != nil {
+	cli := adaptor.GetDefaultDaoClient()
+	if actions := cli.QueryPolicyByAstraea(appId, userId).Actions; actions != nil {
 		permissions = strings.Join(actions, ",")
 	}
 	if !strings.Contains(permissions, "copy") {
@@ -164,9 +165,8 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	if !strings.Contains(permissions, "paste") {
 		config.Parameters["disable-paste"] = "true"
 	}
-	DBclient := dynamodbcli.Singleon()
-	app := DBclient.QueryResource(appId)
-	sku := dynamodbcli.GetTenantById(tenantId).TenantType
+	app := cli.QueryResource(appId)
+	sku := cli.GetTenantById(tenantId).TenantType
 	logrus.Infof("app %s, user %s, permissions %s, recording %v", appId, userId, permissions, app != nil && app.EnableRecording)
 
 	// session recording
@@ -205,7 +205,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.RdpSessionId = sessionDataKey
 
 		if app.MonitorPolicyEntryId != "" {
-			monitorPolicy := DBclient.QueryMonitorPolicyEntryById(app.MonitorPolicyEntryId)
+			monitorPolicy := cli.QueryMonitorPolicyEntryById(app.MonitorPolicyEntryId)
 			session.MonitorPolicyId = monitorPolicy.ID
 			session.MonitorPolicyName = monitorPolicy.Name
 			session.MonitorRules = monitorpolicy.QueryMonitorRuleForUser(monitorPolicy.ID, userId)

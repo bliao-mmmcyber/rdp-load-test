@@ -1,7 +1,7 @@
 package guac
 
 import (
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
 	"golang.org/x/net/websocket"
 )
 
@@ -33,7 +33,7 @@ type SessionCommonData struct {
 	Recording         bool
 	MonitorPolicyId   string
 	MonitorPolicyName string
-	MonitorRules      map[string]*dynamodbcli.MonitorPolicyRule
+	MonitorRules      map[string]*schema.MonitorPolicyRule
 
 	RdpSessionId string
 	GuacdAddr    string

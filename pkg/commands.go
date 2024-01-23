@@ -12,8 +12,9 @@ import (
 
 	"github.com/appaegis/golang-common/pkg/config"
 	"github.com/appaegis/golang-common/pkg/constants"
+	"github.com/appaegis/golang-common/pkg/db_data/adaptor"
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
 	"github.com/appaegis/golang-common/pkg/dlp"
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
 	"github.com/appaegis/golang-common/pkg/monitorpolicy"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
@@ -61,7 +62,7 @@ func SendEvent(action string, payload logging.Action) {
 			event = constants.PolicyV2EventDownload
 		}
 
-		metas := dynamodbcli.QueryPolicyMetaByAstraea(
+		metas := adaptor.GetDefaultDaoClient().QueryPolicyMetaByAstraea(
 			payload.AppID,
 			payload.UserEmail,
 			payload.TenantID,
@@ -79,7 +80,7 @@ func SendEvent(action string, payload logging.Action) {
 
 func sendBlockEvent(event BlockEvent) {
 	wg := sync.WaitGroup{}
-	policyMeta := dynamodbcli.PolicyV2Meta{}
+	policyMeta := schema.PolicyV2Meta{}
 
 	wg.Add(1)
 	go func() {
@@ -89,7 +90,7 @@ func sendBlockEvent(event BlockEvent) {
 				fmt.Println("Recovered in sendBlockEvent", r)
 			}
 		}()
-		metas := dynamodbcli.QueryPolicyMetaByAstraea(
+		metas := adaptor.GetDefaultDaoClient().QueryPolicyMetaByAstraea(
 			event.Session.AppID,
 			event.Session.Email,
 			event.Session.TenantID,
@@ -186,7 +187,7 @@ func (c ReportContextCommand) Exec(instruction *Instruction, session *SessionCom
 		return getResponseCommand(requestId, "400")
 	}
 
-	userAgent := dynamodbcli.UserAgent{}
+	userAgent := schema.UserAgent{}
 	err = json.Unmarshal(contextRAW, &userAgent)
 	if err != nil {
 		return getResponseCommand(requestId, "400")
@@ -202,7 +203,7 @@ type CheckUserCommand struct{}
 func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
 	userId := instruction.Args[2]
 	logrus.Infof("check user %s", userId)
-	u := dynamodbcli.Singleon().QueryUserById(userId)
+	u := adaptor.GetDefaultDaoClient().QueryUserById(userId)
 	status := "200"
 	if u == nil || u.ID == "" || u.TenantId != session.TenantID {
 		status = "404"
@@ -409,7 +410,7 @@ type DLPJobEventPayload struct {
 	AppName    string
 	TenantID   string
 	Location   string
-	UserAgent  dynamodbcli.UserAgent
+	UserAgent  schema.UserAgent
 }
 
 func sendDLPJobEvent(payload DLPJobEventPayload) {

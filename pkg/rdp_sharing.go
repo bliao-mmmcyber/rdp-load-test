@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
@@ -35,7 +35,7 @@ type WriterCloser interface {
 
 type RdpClient struct {
 	Websocket WriterCloser
-	UserAgent dynamodbcli.UserAgent
+	UserAgent schema.UserAgent
 	UserId    string
 	Role      string // admin or cohost or viewer
 	Mouse     bool
