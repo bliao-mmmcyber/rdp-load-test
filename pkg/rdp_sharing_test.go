@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/wwt/guac/mocks"
@@ -20,7 +20,7 @@ func TestAuthShare(t *testing.T) {
 
 	// normal case
 	NewRdpSessionRoom("sessionId", "user1", nil, "connectionId", true, "appId", "", loggingInfo)
-	db.On("GetInviteeByUserIdAndSessionId", "user3", "sessionId").Return(&dynamodbcli.ActiveRdpSessionInvitee{
+	db.On("GetInviteeByUserIdAndSessionId", "user3", "sessionId").Return(&schema.ActiveRdpSessionInvitee{
 		Permissions: "mouse",
 	}, nil)
 	result, permissions := AuthShare("user3", "sessionId")

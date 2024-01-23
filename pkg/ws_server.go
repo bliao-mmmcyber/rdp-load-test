@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/appaegis/golang-common/pkg/config"
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/db_data/adaptor"
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
@@ -166,7 +167,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			if appId != "" {
 				_ = s.channelManagement.Add(appId, channelID.String(), ch)
-				app := dynamodbcli.Singleon().QueryResource(appId)
+				app := adaptor.GetDefaultDaoClient().QueryResource(appId)
 				sharing = app.AllowSharing
 			}
 			go BroadCastToWs(ws, ch, sharing, appId, userId)
@@ -193,7 +194,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			MonitorPolicyName: ses.MonitorPolicyName,
 		})
 
-		e := dbAccess.SaveActiveRdpSession(&dynamodbcli.ActiveRdpSession{
+		e := dbAccess.SaveActiveRdpSession(&schema.ActiveRdpSession{
 			Id:        sessionId,
 			Owner:     userId,
 			TenantId:  tunnel.GetLoggingInfo().TenantId,
@@ -343,7 +344,7 @@ func BroadCastToWs(ws MessageWriter, ch chan int, sharing bool, appId string, us
 }
 
 func BroadCastPolicy(ws MessageWriter, sharing bool, appId string, userId string) {
-	actions := dynamodbcli.QueryPolicyByAstraea(appId, userId).Actions
+	actions := adaptor.GetDefaultDaoClient().QueryPolicyByAstraea(appId, userId).Actions
 	if actions == nil {
 		logrus.Debug("policy empty:", appId, userId)
 		return

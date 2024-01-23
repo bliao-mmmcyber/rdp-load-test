@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/appaegis/golang-common/pkg/config"
-	"github.com/appaegis/golang-common/pkg/dynamodbcli"
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,10 +26,10 @@ func TestGetSharingUrl(t *testing.T) {
 	config.AddConfig(config.PORTAL_HOSTNAME, "dev.appaegistest.com")
 	db := new(mocks.DbAccess)
 	dbAccess = db // inject mock
-	db.On("GetTenantById", "tenantId").Return(dynamodbcli.TenantEntry{
+	db.On("GetTenantById", "tenantId").Return(schema.TenantEntry{
 		IdpDomain: "kchung",
 	})
-	db.On("GetTenantById", "tenantId2").Return(dynamodbcli.TenantEntry{})
+	db.On("GetTenantById", "tenantId2").Return(schema.TenantEntry{})
 	result := GetSharingUrl("sessionId", "tenantId")
 	assert.True(t, strings.HasPrefix(result, "https://kchung.appaegistest.com"))
 
@@ -89,7 +89,7 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 	db := new(mocks.DbAccess)
 	dbAccess = db // inject mock
 	db.On("ShareRdpSession", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	db.On("GetTenantById", mock.Anything).Return(dynamodbcli.TenantEntry{
+	db.On("GetTenantById", mock.Anything).Return(schema.TenantEntry{
 		IdpDomain: "qa-john",
 	})
 
@@ -120,10 +120,10 @@ func TestSearchUserCommand(t *testing.T) {
 	i := NewInstruction(APPAEGIS_OP, "requestId", SEARCH_USER, "kchung")
 	db := new(mocks.DbAccess)
 	dbAccess = db
-	user := dynamodbcli.UserEntry{
+	user := schema.UserEntry{
 		ID: "kchung@appaegis.com",
 	}
-	db.On("QueryUsersByTenantAndUserPrefix", "tenantId", "kchung").Return([]dynamodbcli.UserEntry{user}, nil)
+	db.On("QueryUsersByTenantAndUserPrefix", "tenantId", "kchung").Return([]schema.UserEntry{user}, nil)
 	c, e := GetCommandByOp(i)
 	if e != nil {
 		t.Fatal("cannot get share-session command")
