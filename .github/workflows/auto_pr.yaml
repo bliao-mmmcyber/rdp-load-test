@@ -1,0 +1,17 @@
+name: Auto PR
+
+on:
+  pull_request:
+    types: 
+    - closed
+    branches:
+    - rel-*
+
+jobs:
+  auto-create-pr:
+    uses: appaegis/gitaction-lib/.github/workflows/auto_pr.yaml@main
+    secrets:
+      token: ${{ secrets.ORG_TOKEN }}
+      webhook_url: ${{ secrets.DEVOPS_CHANNEL_WEBHOOK }}
+
+      
