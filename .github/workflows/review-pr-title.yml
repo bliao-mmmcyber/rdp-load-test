@@ -1,0 +1,14 @@
+---
+name: Review PR title
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [dev, rel-*]
+  workflow_dispatch:
+
+jobs:
+  check-pr-title:
+    uses: appaegis/gitaction-lib/.github/workflows/review-pr-title.yml@main
+    with:
+      pr_title: ${{ github.event.pull_request.title }}
