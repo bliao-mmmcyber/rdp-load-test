@@ -1,9 +1,10 @@
+---
 name: check src branch name
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-    branches: [rel-3*]
+    branches: [rel-*]
   workflow_dispatch:
 
 jobs:

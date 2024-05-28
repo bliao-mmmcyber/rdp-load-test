@@ -4,7 +4,7 @@ name: Review PR message body
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-    branches: [dev, rel-3*]
+    branches: [dev, rel-*]
   workflow_dispatch:
 
 jobs:
