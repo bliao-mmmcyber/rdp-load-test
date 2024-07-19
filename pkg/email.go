@@ -52,10 +52,8 @@ const (
 					font-family: arial, helvetica, sans-serif;
 					font-size: 12pt;
 				">
-				  {{.Inviter}} was invite you to join a screen share. <br/>
-				  Please click the below link, then you can join the screen share.
-                  <br/><br/>
-                  Here is the screen share link
+					{{.Inviter}} has invited you to join a screen share. <br/>
+					Please click the link below to join:
 				</span>
 				<br />
 				<br />
