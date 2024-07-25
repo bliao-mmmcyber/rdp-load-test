@@ -303,7 +303,7 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 	}
 }
 
-func LeaveRoom(sessionId, user, tenantId, appId string) error {
+func LeaveRoom(sessionId, user, tenantId, appId, appName, clientIp string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -313,6 +313,8 @@ func LeaveRoom(sessionId, user, tenantId, appId string) error {
 		UserEmail:    user,
 		AppID:        appId,
 		TenantID:     tenantId,
+		AppName:      appName,
+		ClientIP:     clientIp,
 	})
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {

@@ -244,7 +244,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	guacdToWs(ws, reader)
 
 	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
-	e = LeaveRoom(sessionId, userId, tunnel.GetLoggingInfo().TenantId, appId)
+	e = LeaveRoom(sessionId, userId, tunnel.GetLoggingInfo().TenantId, appId, tunnel.GetLoggingInfo().AppName, tunnel.GetLoggingInfo().ClientIp)
 	if e != nil {
 		logrus.Errorf("leave room failed, session %s, e %v", sessionId, e)
 	}
