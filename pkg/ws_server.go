@@ -226,6 +226,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				RdpSessionId:      sessionId,
 				UserEmail:         userId,
 				AppID:             room.AppId,
+				AppName:           room.AppName,
 				TenantID:          room.TenantId,
 				ClientIP:          strings.Split(query.Get("clientIp"), ":")[0],
 				Recording:         ses.Recording,

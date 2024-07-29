@@ -167,12 +167,12 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	}
 	app := cli.QueryResource(appId)
 	sku := cli.GetTenantById(tenantId).TenantType
-	logrus.Infof("app %s, user %s, permissions %s, recording %v", appId, userId, permissions, app != nil && app.EnableRecording)
+	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
+	logrus.Infof("app %s, user %s, permissions %s, ip %s, recording %v", appId, userId, permissions, clientIp, app != nil && app.EnableRecording)
 
 	// session recording
 	sessionId := uuid.NewV4()
 	s3key := time.Now().Format(time.RFC3339)
-	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 	enableRecording := false
 	sessionDataKey := sessionId.String()
 
@@ -187,7 +187,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	shareSessionID := query.Get("shareSessionId")
 	if room, ok := guac.GetRoomByAppIdAndCreator(appId, userId); ok {
-		logrus.Infof("host user %s join to existing session %s", userId, room.SessionId)
+		logrus.Infof("host user %s join to existing session %s, app %s", userId, room.SessionId, room.AppName)
 		shareSessionID = room.SessionId
 	}
 	session := &guac.SessionCommonData{}
@@ -224,6 +224,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		}
 		config.ConnectionID = room.RdpConnectionId
 		session = sessionData.(*guac.SessionCommonData)
+		loggingInfo.AppName = session.AppName
 	}
 
 	if query.Get("width") != "" {
