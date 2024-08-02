@@ -1,7 +1,7 @@
 ARG guacd
 ARG golang_ver
 
-FROM golang:$golang_ver as build-env
+FROM golang:1.21 as build-env
 
 ADD . /go/src/app
 WORKDIR /go/src/app

@@ -78,5 +78,5 @@ func PopFromQueue(index int) {
 }
 
 func GetQueueName(index int) string {
-	return fmt.Sprintf("%s-%d", queueName, index)
+	return fmt.Sprintf("%s-%s-%d", queueName, config.GetDeployVer(), index)
 }
