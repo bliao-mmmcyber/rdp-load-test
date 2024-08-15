@@ -71,10 +71,7 @@ func (c *RdpClient) SendPermission() {
 
 type RdpSessionRoom struct {
 	Creator         string
-	ClientIp        string
 	AppId           string
-	AppName         string
-	TenantId        string
 	SessionId       string
 	RdpConnectionId string
 	AllowSharing    bool
@@ -252,8 +249,6 @@ func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, conne
 		Creator:         user,
 		SessionId:       sessionId,
 		AppId:           appId,
-		AppName:         appName,
-		TenantId:        loggingInfo.TenantId,
 		loggingInfo:     &loggingInfo,
 		Users:           make(map[string]*RdpClient),
 		RdpConnectionId: connectionId,
@@ -366,7 +361,7 @@ func closeRoom(room *RdpSessionRoom) {
 	go SendEvent("exit", logging.Action{
 		Session:         ses,
 		UserEmail:       room.Creator,
-		ClientIP:        room.ClientIp,
+		ClientIP:        ses.ClientIP,
 		ClientPrivateIp: ses.ClientPrivateIp,
 	})
 }

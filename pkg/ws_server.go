@@ -205,9 +205,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("put to cache failed %v", e)
 		}
 		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo().AppName, tunnel.GetLoggingInfo())
-		if room, ok := GetRdpSessionRoom(sessionId); ok {
-			room.ClientIp = clientIp
-		}
 	} else {
 		sessionId = shareSessionId
 		ses, _ := SessionDataStore.Get(sessionId).(*session.SessionCommonData)

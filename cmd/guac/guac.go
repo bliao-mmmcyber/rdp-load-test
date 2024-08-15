@@ -189,7 +189,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	shareSessionID := query.Get("shareSessionId")
 	if room, ok := guac.GetRoomByAppIdAndCreator(appId, userId); ok {
-		logrus.Infof("host user %s join to existing session %s, app %s", userId, room.SessionId, room.AppName)
+		logrus.Infof("host user %s join to existing session %s, app %s", userId, room.SessionId, room.AppId)
 		shareSessionID = room.SessionId
 	}
 	session := &guacSession.SessionCommonData{}
