@@ -1,0 +1,28 @@
+package session
+
+import (
+	"github.com/appaegis/golang-common/pkg/db_data/schema"
+	"github.com/gorilla/websocket"
+)
+
+type SessionCommonData struct {
+	TenantID         string
+	AppID            string
+	Email            string
+	IDToken          string
+	ClientIsoCountry string
+	ClientIP         string
+	ClientPrivateIp  string
+	AppName          string
+	RoleIDs          []string
+	SessionStartTime int64
+
+	Recording         bool
+	MonitorPolicyId   string
+	MonitorPolicyName string
+	MonitorRules      map[string]*schema.MonitorPolicyRule
+
+	RdpSessionId string
+	GuacdAddr    string
+	Websocket    *websocket.Conn
+}
