@@ -304,15 +304,16 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 	}
 }
 
-func LeaveRoom(session *session.SessionCommonData, sessionId, user, clientIp string) error {
+func LeaveRoom(session *session.SessionCommonData, sessionId, user, clientIp, clientPrivateIp string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
 	logging.Log(logging.Action{
-		Session:   session,
-		AppTag:    "rdp.leave",
-		UserEmail: user,
-		ClientIP:  clientIp,
+		Session:         session,
+		AppTag:          "rdp.leave",
+		UserEmail:       user,
+		ClientIP:        clientIp,
+		ClientPrivateIp: clientPrivateIp,
 	})
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
@@ -363,8 +364,9 @@ func closeRoom(room *RdpSessionRoom) {
 	AddEncodeRecoding(*room.loggingInfo)
 
 	go SendEvent("exit", logging.Action{
-		Session:   ses,
-		UserEmail: room.Creator,
-		ClientIP:  room.ClientIp,
+		Session:         ses,
+		UserEmail:       room.Creator,
+		ClientIP:        room.ClientIp,
+		ClientPrivateIp: ses.ClientPrivateIp,
 	})
 }

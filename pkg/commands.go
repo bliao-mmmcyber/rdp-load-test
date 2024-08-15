@@ -108,6 +108,7 @@ func sendBlockEvent(event BlockEvent) {
 		AppTag:          fmt.Sprintf("rdp.%s.block", event.Event),
 		UserEmail:       event.Session.Email,
 		ClientIP:        event.Session.ClientIP,
+		ClientPrivateIp: event.Session.ClientPrivateIp,
 		RemotePath:      event.RemotePath,
 		Files:           event.Files,
 		FileCount:       event.FileCount,
@@ -434,12 +435,13 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *session.SessionC
 	}
 
 	go SendEvent("download", logging.Action{
-		Session:    ses,
-		UserEmail:  ses.Email,
-		ClientIP:   ses.ClientIP,
-		RemotePath: "Filesystem on Appaegis RDP",
-		Files:      []string{fileName},
-		FileCount:  1,
+		Session:         ses,
+		UserEmail:       ses.Email,
+		ClientIP:        ses.ClientIP,
+		ClientPrivateIp: ses.ClientPrivateIp,
+		RemotePath:      "Filesystem on Appaegis RDP",
+		Files:           []string{fileName},
+		FileCount:       1,
 	})
 
 	fullPath := fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath)
@@ -480,12 +482,13 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *session.SessionCom
 	logrus.Debug("dlp-upload: ", fileName)
 
 	go SendEvent("upload", logging.Action{
-		Session:    ses,
-		UserEmail:  ses.Email,
-		ClientIP:   ses.ClientIP,
-		RemotePath: "Filesystem on Appaegis RDP",
-		Files:      []string{fileName},
-		FileCount:  1,
+		Session:         ses,
+		UserEmail:       ses.Email,
+		ClientIP:        ses.ClientIP,
+		ClientPrivateIp: ses.ClientPrivateIp,
+		RemotePath:      "Filesystem on Appaegis RDP",
+		Files:           []string{fileName},
+		FileCount:       1,
 	})
 
 	sendDLPJobEvent(DLPJobEventPayload{

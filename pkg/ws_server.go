@@ -181,11 +181,12 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 
 		go SendEvent("open", logging.Action{
-			Session:   ses,
-			UserEmail: userId,
-			Username:  userName,
-			ClientIP:  clientIp,
-			TargetIp:  host,
+			Session:         ses,
+			UserEmail:       userId,
+			Username:        userName,
+			ClientIP:        clientIp,
+			ClientPrivateIp: tunnel.GetLoggingInfo().ClientPrivateIp,
+			TargetIp:        host,
 		})
 
 		e := dbAccess.SaveActiveRdpSession(&schema.ActiveRdpSession{
@@ -233,7 +234,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	guacdToWs(ws, reader)
 
 	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
-	e = LeaveRoom(ses, sessionId, userId, tunnel.GetLoggingInfo().ClientIp)
+	e = LeaveRoom(ses, sessionId, userId, tunnel.GetLoggingInfo().ClientIp, tunnel.GetLoggingInfo().ClientPrivateIp)
 	if e != nil {
 		logrus.Errorf("leave room failed, session %s, e %v", sessionId, e)
 	}

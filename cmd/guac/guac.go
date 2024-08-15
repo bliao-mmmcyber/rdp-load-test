@@ -178,7 +178,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	enableRecording := false
 	sessionDataKey := sessionId.String()
 
-	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, enableRecording)
+	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, enableRecording, clientPrivateIp)
 	if app != nil && app.EnableRecording {
 		loggingInfo.EnableRecording = true
 		config.Parameters["recording-path"] = "/efs/rdp"

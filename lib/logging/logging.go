@@ -68,6 +68,7 @@ type LoggingInfo struct {
 	Email           string    `json:"email"`
 	AppName         string    `json:"appName"`
 	ClientIp        string    `json:"clientIp"`
+	ClientPrivateIp string    `json:"clientPrivateIp"`
 	S3Key           string    `json:"s3key"`
 	EnableRecording bool      `json:"enableRecording"`
 	StartTime       time.Time `json:"startTime"`
@@ -79,12 +80,13 @@ func (l *LoggingInfo) GetRecordingFileName() string {
 	return fmt.Sprintf("%s-%s", l.Email, l.S3Key)
 }
 
-func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enableRecording bool) LoggingInfo {
+func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enableRecording bool, clientPrivateIp string) LoggingInfo {
 	return LoggingInfo{
 		TenantId:        tenantId,
 		Email:           email,
 		AppName:         appName,
 		ClientIp:        clientIp,
+		ClientPrivateIp: clientPrivateIp,
 		S3Key:           s3key,
 		EnableRecording: enableRecording,
 		StartTime:       time.Now(),
@@ -130,6 +132,7 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageTyp
 		zap.String("bucket", bucket),
 		zap.String("region", region),
 		zap.String("client_ip", loggingInfo.ClientIp),
+		zap.String("client_private_ip", loggingInfo.ClientPrivateIp),
 		zap.String("key_id", keyId),
 		zap.String("storage_type", storageType),
 		zap.String("sessionid", sessionid),
