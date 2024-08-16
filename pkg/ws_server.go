@@ -16,6 +16,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
+	"github.com/wwt/guac/pkg/session"
 )
 
 var (
@@ -175,23 +176,17 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var client *RdpClient
-	ses, _ := SessionDataStore.Get(sessionId).(*SessionCommonData)
+	ses, _ := SessionDataStore.Get(sessionId).(*session.SessionCommonData)
 	if shareSessionId == "" { // rdp session owner connected
 		clientIp := strings.Split(query.Get("clientIp"), ":")[0]
 
 		go SendEvent("open", logging.Action{
-			RdpSessionId:      sessionId,
-			UserEmail:         userId,
-			Username:          userName,
-			AppID:             appId,
-			AppName:           tunnel.GetLoggingInfo().AppName,
-			TenantID:          tunnel.GetLoggingInfo().TenantId,
-			RoleIDs:           strings.Split(query.Get("roleIds"), ","),
-			ClientIP:          clientIp,
-			TargetIp:          host,
-			Recording:         ses.Recording,
-			MonitorPolicyId:   ses.MonitorPolicyId,
-			MonitorPolicyName: ses.MonitorPolicyName,
+			Session:         ses,
+			UserEmail:       userId,
+			Username:        userName,
+			ClientIP:        clientIp,
+			ClientPrivateIp: tunnel.GetLoggingInfo().ClientPrivateIp,
+			TargetIp:        host,
 		})
 
 		e := dbAccess.SaveActiveRdpSession(&schema.ActiveRdpSession{
@@ -210,28 +205,19 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("put to cache failed %v", e)
 		}
 		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo().AppName, tunnel.GetLoggingInfo())
-		if room, ok := GetRdpSessionRoom(sessionId); ok {
-			room.ClientIp = clientIp
-		}
 	} else {
 		sessionId = shareSessionId
-		ses, _ := SessionDataStore.Get(sessionId).(*SessionCommonData)
+		ses, _ := SessionDataStore.Get(sessionId).(*session.SessionCommonData)
 		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
 		if e != nil {
 			logrus.Errorf("join to room failed %s", sessionId)
 			return
 		}
-		if room, ok := GetRdpSessionRoom(sessionId); ok {
+		if _, ok := GetRdpSessionRoom(sessionId); ok {
 			go SendEvent("join", logging.Action{
-				RdpSessionId:      sessionId,
-				UserEmail:         userId,
-				AppID:             room.AppId,
-				AppName:           room.AppName,
-				TenantID:          room.TenantId,
-				ClientIP:          strings.Split(query.Get("clientIp"), ":")[0],
-				Recording:         ses.Recording,
-				MonitorPolicyId:   ses.MonitorPolicyId,
-				MonitorPolicyName: ses.MonitorPolicyName,
+				Session:   ses,
+				UserEmail: userId,
+				ClientIP:  strings.Split(query.Get("clientIp"), ":")[0],
 			})
 		}
 	}
@@ -245,7 +231,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	guacdToWs(ws, reader)
 
 	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
-	e = LeaveRoom(sessionId, userId, tunnel.GetLoggingInfo().TenantId, appId, tunnel.GetLoggingInfo().AppName, tunnel.GetLoggingInfo().ClientIp)
+	e = LeaveRoom(ses, sessionId, userId, tunnel.GetLoggingInfo().ClientIp, tunnel.GetLoggingInfo().ClientPrivateIp)
 	if e != nil {
 		logrus.Errorf("leave room failed, session %s, e %v", sessionId, e)
 	}
@@ -382,7 +368,7 @@ func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string)
 		logrus.Println("Instruction parse error: ", err)
 		return
 	}
-	ses, ok := SessionDataStore.Get(sessionDataKey).(*SessionCommonData)
+	ses, ok := SessionDataStore.Get(sessionDataKey).(*session.SessionCommonData)
 	if !ok {
 		logrus.Infof("session data not found: %s", sessionDataKey)
 		return
@@ -397,13 +383,10 @@ func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string)
 		result = command.Exec(instruction, ses, client)
 	} else {
 		logging.Log(logging.Action{
-			AppTag:       "guac." + strings.ToLower(op),
-			TenantID:     ses.TenantID,
-			UserEmail:    ses.Email,
-			AppID:        ses.AppID,
-			RoleIDs:      ses.RoleIDs,
-			ClientIP:     ses.ClientIP,
-			RdpSessionId: ses.RdpSessionId,
+			AppTag:    "guac." + strings.ToLower(op),
+			Session:   ses,
+			UserEmail: ses.Email,
+			ClientIP:  ses.ClientIP,
 		})
 		j := J{
 			"ng": 1,

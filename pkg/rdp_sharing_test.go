@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/wwt/guac/mocks"
+	"github.com/wwt/guac/pkg/session"
 )
 
 func TestAuthShare(t *testing.T) {
@@ -36,10 +37,12 @@ func TestSingleAdmin(t *testing.T) {
 	dbAccess = db
 
 	sessionId := "singleAdmin"
-	SessionDataStore.Set(sessionId, &SessionCommonData{})
+	ses := &session.SessionCommonData{}
+	SessionDataStore.Set(sessionId, ses)
 	NewRdpSessionRoom(sessionId, "user1", nil, "", true, "appId", "appName", loggingInfo)
 	db.On("DeleteRdpSession", mock.Anything).Return(nil)
-	_ = LeaveRoom("singleAdmin", "user1", "", "", "", "")
+
+	_ = LeaveRoom(ses, "singleAdmin", "user1", "", "")
 	assert.Equal(t, 0, len(rdpRooms))
 }
 
@@ -52,7 +55,8 @@ func TestTwoAdmin(t *testing.T) {
 	ws.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
 	_, _ = JoinRoom("1", "user2", ws, "admin")
 
-	_ = LeaveRoom("1", "user1", "", "", "", "")
+	ses := &session.SessionCommonData{}
+	_ = LeaveRoom(ses, "1", "user1", "", "")
 	assert.Equal(t, 1, len(rdpRooms))
 	assert.Equal(t, 1, len(rdpRooms["1"].Users))
 }
@@ -67,8 +71,9 @@ func TestSingleAdminLeave(t *testing.T) {
 	_, _ = JoinRoom("1", "user2", ws, "mouse")
 
 	ws.On("Close").Return(nil)
-	SessionDataStore.Set("1", &SessionCommonData{})
-	_ = LeaveRoom("1", "user1", "", "", "", "")
+	ses := &session.SessionCommonData{}
+	SessionDataStore.Set("1", ses)
+	_ = LeaveRoom(ses, "1", "user1", "", "")
 
 	assert.Equal(t, 0, len(rdpRooms))
 }
@@ -82,7 +87,8 @@ func TestNormalUserLeave(t *testing.T) {
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
 	_, _ = JoinRoom("1", "user2", ws2, "mouse")
 
-	_ = LeaveRoom("1", "user2", "", "", "", "")
+	ses := &session.SessionCommonData{}
+	_ = LeaveRoom(ses, "1", "user2", "", "")
 	assert.Equal(t, 1, len(rdpRooms))
 	assert.Equal(t, 1, len(rdpRooms["1"].Users))
 }
@@ -111,7 +117,8 @@ func TestGetRoomByAppIdAndCreator(t *testing.T) {
 	ws2 := new(mocks.WriterCloser)
 	ws2.On("WriteMessage", mock.Anything, mock.Anything).Return(nil)
 	_, _ = JoinRoom(sessionId, "user2", ws2, "admin")
-	_ = LeaveRoom(sessionId, "user1", "", "", "", "")
+	ses := &session.SessionCommonData{}
+	_ = LeaveRoom(ses, sessionId, "user1", "", "")
 
 	r, ok := GetRoomByAppIdAndCreator("appId", "user1")
 	assert.True(t, ok)

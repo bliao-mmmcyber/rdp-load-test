@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/wwt/guac/lib/logging"
 	"github.com/wwt/guac/mocks"
+	"github.com/wwt/guac/pkg/session"
 )
 
 var loggingInfo = logging.LoggingInfo{
@@ -60,7 +61,7 @@ func TestStopShareCommand(t *testing.T) {
 	dbAccess = db
 	db.On("RemoveInvitee", mock.Anything, mock.Anything).Return(nil)
 
-	result := c.Exec(ins, &SessionCommonData{RdpSessionId: sessionId}, &RdpClient{UserId: "user1", Role: ROLE_ADMIN})
+	result := c.Exec(ins, &session.SessionCommonData{RdpSessionId: sessionId}, &RdpClient{UserId: "user1", Role: ROLE_ADMIN})
 	room, _ := GetRdpSessionRoom(sessionId)
 	assert.True(t, strings.Contains(result.String(), "200")) // check status
 	assert.True(t, len(room.Users) == 1)
@@ -93,7 +94,7 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 		IdpDomain: "qa-john",
 	})
 
-	result := c.Exec(&i, &SessionCommonData{RdpSessionId: "123"}, &RdpClient{})
+	result := c.Exec(&i, &session.SessionCommonData{RdpSessionId: "123"}, &RdpClient{})
 	m := make(map[string]string)
 	_ = json.Unmarshal([]byte(result.Args[1]), &m)
 
@@ -106,7 +107,7 @@ func TestSharingAndRmoeveShareCommand(t *testing.T) {
 		t.Fatal("cannot get remove-share command")
 	}
 	db.On("RemoveInvitee", mock.Anything, mock.Anything).Return(nil)
-	result = c.Exec(ins, &SessionCommonData{
+	result = c.Exec(ins, &session.SessionCommonData{
 		RdpSessionId: "123",
 	}, &RdpClient{})
 	logrus.Infof("result %s", result.String())
@@ -128,7 +129,7 @@ func TestSearchUserCommand(t *testing.T) {
 	if e != nil {
 		t.Fatal("cannot get share-session command")
 	}
-	result := c.Exec(i, &SessionCommonData{RdpSessionId: "123", TenantID: "tenantId"}, &RdpClient{})
+	result := c.Exec(i, &session.SessionCommonData{RdpSessionId: "123", TenantID: "tenantId"}, &RdpClient{})
 	assert.Equal(t, result.Args[0], "requestId")
 	var searchResult SearchUserResp
 	_ = json.Unmarshal([]byte(result.Args[1]), &searchResult)
@@ -160,7 +161,7 @@ func TestSetPermissionsCommand(t *testing.T) {
 	}
 	user2 := r.Users["user2"]
 
-	_ = c.Exec(i, &SessionCommonData{RdpSessionId: "1"}, &RdpClient{Role: ROLE_CO_HOST})
+	_ = c.Exec(i, &session.SessionCommonData{RdpSessionId: "1"}, &RdpClient{Role: ROLE_CO_HOST})
 	assert.Equal(t, user2.Role, ROLE_CO_HOST)
 	assert.True(t, user2.Keyboard)
 	assert.True(t, user2.Mouse)

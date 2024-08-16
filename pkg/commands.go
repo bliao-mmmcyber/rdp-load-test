@@ -18,12 +18,13 @@ import (
 	"github.com/appaegis/golang-common/pkg/monitorpolicy"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
+	"github.com/wwt/guac/pkg/session"
 )
 
 const INVITEE_LIMIT = 4
 
 type Command interface {
-	Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction
+	Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction
 }
 
 var mailService MailService = RdpMailService{}
@@ -33,7 +34,7 @@ var commands = make(map[string]Command)
 type BlockEvent struct {
 	Event           constants.PolicyV2Event
 	RemotePath      string
-	Session         *SessionCommonData
+	Session         *session.SessionCommonData
 	Files           []string
 	FileCount       int
 	BlockPolicyType string
@@ -63,9 +64,9 @@ func SendEvent(action string, payload logging.Action) {
 		}
 
 		metas := adaptor.GetDefaultDaoClient().QueryPolicyMetaByAstraea(
-			payload.AppID,
+			payload.Session.AppID,
 			payload.UserEmail,
-			payload.TenantID,
+			payload.Session.TenantID,
 			string(constants.PolicyV2ResourceTypeRdp),
 		)
 		if meta, ok := (*metas)[event]; ok {
@@ -103,24 +104,18 @@ func sendBlockEvent(event BlockEvent) {
 	wg.Wait()
 
 	logging.Log(logging.Action{
-		AppTag:            fmt.Sprintf("rdp.%s.block", event.Event),
-		RdpSessionId:      event.Session.RdpSessionId,
-		TenantID:          event.Session.TenantID,
-		AppID:             event.Session.AppID,
-		AppName:           event.Session.AppName,
-		RoleIDs:           event.Session.RoleIDs,
-		UserEmail:         event.Session.Email,
-		ClientIP:          event.Session.ClientIP,
-		RemotePath:        event.RemotePath,
-		Files:             event.Files,
-		FileCount:         event.FileCount,
-		Recording:         event.Session.Recording,
-		PolicyID:          policyMeta.ID,
-		PolicyName:        policyMeta.Name,
-		MonitorPolicyId:   event.Session.MonitorPolicyId,
-		MonitorPolicyName: event.Session.MonitorPolicyName,
-		BlockPolicyType:   event.BlockPolicyType,
-		BlockReason:       event.BlockReason,
+		Session:         event.Session,
+		AppTag:          fmt.Sprintf("rdp.%s.block", event.Event),
+		UserEmail:       event.Session.Email,
+		ClientIP:        event.Session.ClientIP,
+		ClientPrivateIp: event.Session.ClientPrivateIp,
+		RemotePath:      event.RemotePath,
+		Files:           event.Files,
+		FileCount:       event.FileCount,
+		PolicyID:        policyMeta.ID,
+		PolicyName:      policyMeta.Name,
+		BlockPolicyType: event.BlockPolicyType,
+		BlockReason:     event.BlockReason,
 	})
 }
 
@@ -162,7 +157,7 @@ func GetSharingUrl(sessionId, tenantId string) string {
 
 type StopShareCommand struct{}
 
-func (c StopShareCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+func (c StopShareCommand) Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction {
 	requestId := instruction.Args[0]
 	if client.Role != ROLE_ADMIN {
 		logrus.Errorf("%s is not host user, cannot stop sharing", client.UserId)
@@ -179,7 +174,7 @@ func (c StopShareCommand) Exec(instruction *Instruction, session *SessionCommonD
 
 type ReportContextCommand struct{}
 
-func (c ReportContextCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+func (c ReportContextCommand) Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction {
 	requestId := instruction.Args[0]
 	encodedContext := instruction.Args[2]
 	contextRAW, err := base64.StdEncoding.DecodeString(encodedContext)
@@ -200,7 +195,7 @@ func (c ReportContextCommand) Exec(instruction *Instruction, session *SessionCom
 
 type CheckUserCommand struct{}
 
-func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+func (c CheckUserCommand) Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction {
 	userId := instruction.Args[2]
 	logrus.Infof("check user %s", userId)
 	u := adaptor.GetDefaultDaoClient().QueryUserById(userId)
@@ -220,7 +215,7 @@ func (c CheckUserCommand) Exec(instruction *Instruction, session *SessionCommonD
 
 type RemoveShareCommand struct{}
 
-func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+func (c RemoveShareCommand) Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction {
 	room, ok := GetRdpSessionRoom(session.RdpSessionId)
 	requestId := instruction.Args[0]
 	if len(instruction.Args) < 3 || !ok {
@@ -263,7 +258,7 @@ func (c RemoveShareCommand) Exec(instruction *Instruction, session *SessionCommo
 
 type SetPermissions struct{}
 
-func (c SetPermissions) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+func (c SetPermissions) Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction {
 	if client.Role == ROLE_VIEWER {
 		logrus.Errorf("user %s didn't have permission to set permissions", client.UserId)
 		return getResponseCommand(instruction.Args[0], "403")
@@ -318,7 +313,7 @@ type SearchUserResp struct {
 
 type SearchUserCommand struct{}
 
-func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+func (c SearchUserCommand) Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction {
 	if len(instruction.Args) < 3 {
 		logrus.Infof("instruction args err")
 		return nil
@@ -345,7 +340,7 @@ func (c SearchUserCommand) Exec(instruction *Instruction, session *SessionCommon
 
 type RequestSharingCommand struct{}
 
-func (c RequestSharingCommand) Exec(instruction *Instruction, session *SessionCommonData, client *RdpClient) *Instruction {
+func (c RequestSharingCommand) Exec(instruction *Instruction, session *session.SessionCommonData, client *RdpClient) *Instruction {
 	var err error
 	status := "200"
 
@@ -430,7 +425,7 @@ func sendDLPJobEvent(payload DLPJobEventPayload) {
 
 type DlpDownloadCommand struct{}
 
-func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
+func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *session.SessionCommonData, client *RdpClient) *Instruction {
 	filePath := instruction.Args[2]
 	logrus.Debug("dlp-download: ", filePath)
 	fileTokens := strings.Split(filePath, "/")
@@ -440,19 +435,13 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 	}
 
 	go SendEvent("download", logging.Action{
-		RdpSessionId:      ses.RdpSessionId,
-		TenantID:          ses.TenantID,
-		AppID:             ses.AppID,
-		AppName:           ses.AppName,
-		RoleIDs:           ses.RoleIDs,
-		UserEmail:         ses.Email,
-		ClientIP:          ses.ClientIP,
-		RemotePath:        "Filesystem on Appaegis RDP",
-		Files:             []string{fileName},
-		FileCount:         1,
-		Recording:         ses.Recording,
-		MonitorPolicyId:   ses.MonitorPolicyId,
-		MonitorPolicyName: ses.MonitorPolicyName,
+		Session:         ses,
+		UserEmail:       ses.Email,
+		ClientIP:        ses.ClientIP,
+		ClientPrivateIp: ses.ClientPrivateIp,
+		RemotePath:      "Filesystem on Appaegis RDP",
+		Files:           []string{fileName},
+		FileCount:       1,
 	})
 
 	fullPath := fmt.Sprintf("%s%s", GetDrivePathInEFS(ses.TenantID, ses.AppID, ses.Email), filePath)
@@ -488,24 +477,18 @@ func (c DlpDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 
 type DlpUploadCommand struct{}
 
-func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
+func (c DlpUploadCommand) Exec(instruction *Instruction, ses *session.SessionCommonData, client *RdpClient) *Instruction {
 	fileName := instruction.Args[2]
 	logrus.Debug("dlp-upload: ", fileName)
 
 	go SendEvent("upload", logging.Action{
-		RdpSessionId:      ses.RdpSessionId,
-		TenantID:          ses.TenantID,
-		AppID:             ses.AppID,
-		AppName:           ses.AppName,
-		RoleIDs:           ses.RoleIDs,
-		UserEmail:         ses.Email,
-		ClientIP:          ses.ClientIP,
-		RemotePath:        "Filesystem on Appaegis RDP",
-		Files:             []string{fileName},
-		FileCount:         1,
-		Recording:         ses.Recording,
-		MonitorPolicyId:   ses.MonitorPolicyId,
-		MonitorPolicyName: ses.MonitorPolicyName,
+		Session:         ses,
+		UserEmail:       ses.Email,
+		ClientIP:        ses.ClientIP,
+		ClientPrivateIp: ses.ClientPrivateIp,
+		RemotePath:      "Filesystem on Appaegis RDP",
+		Files:           []string{fileName},
+		FileCount:       1,
 	})
 
 	sendDLPJobEvent(DLPJobEventPayload{
@@ -529,7 +512,7 @@ func (c DlpUploadCommand) Exec(instruction *Instruction, ses *SessionCommonData,
 
 type LogDownloadCommand struct{}
 
-func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
+func (c LogDownloadCommand) Exec(instruction *Instruction, ses *session.SessionCommonData, client *RdpClient) *Instruction {
 	logrus.Infof("log download command runs")
 	fileCount, err := strconv.Atoi(instruction.Args[2])
 	if err != nil {
@@ -546,7 +529,7 @@ func (c LogDownloadCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 
 type UploadCheckCommand struct{}
 
-func (c UploadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
+func (c UploadCheckCommand) Exec(instruction *Instruction, ses *session.SessionCommonData, client *RdpClient) *Instruction {
 	fileCount, e := strconv.Atoi(instruction.Args[2])
 	if e != nil {
 		fileCount = 1
@@ -590,7 +573,7 @@ func (c UploadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonDat
 
 type DownloadCheckCommand struct{}
 
-func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *SessionCommonData, client *RdpClient) *Instruction {
+func (c DownloadCheckCommand) Exec(instruction *Instruction, ses *session.SessionCommonData, client *RdpClient) *Instruction {
 	fileCount, err := strconv.Atoi(instruction.Args[2])
 	if err != nil {
 		fileCount = 1

@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/wwt/guac/pkg/session"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -25,28 +25,42 @@ var (
 
 // Action is user action, the log object
 type Action struct {
-	ProductType       string   `json:"product_type"`
-	AppType           string   `json:"app_type"`
-	AppTag            string   `json:"app_tag"`
-	TenantID          string   `json:"tenantID"`
-	AppID             string   `json:"appID"`
-	AppName           string   `json:"appName"`
-	RoleIDs           []string `json:"roleIDs,omitempty"`
-	UserEmail         string   `json:"userEmail"`
-	Username          string   `json:"username"`
-	RemotePath        string   `json:"remotePath"`
-	FileCount         int      `json:"fileCount,omitempty"`
-	Files             []string `json:"files"`
-	ClientIP          string   `json:"client_ip"`
-	TargetIp          string   `json:"dest"`
-	RdpSessionId      string   `json:"rdpSessionId"`
-	Recording         bool     `json:"recording"`
-	PolicyID          string   `json:"policyid"`
-	PolicyName        string   `json:"policyname"`
-	MonitorPolicyId   string   `json:"monitorpolicyid"`
-	MonitorPolicyName string   `json:"monitorpolicyname"`
-	BlockPolicyType   string   `json:"blockPolicyType"`
-	BlockReason       string   `json:"blockReason"`
+	Session *session.SessionCommonData
+	AppTag  string `json:"app_tag"`
+
+	AppType           string `json:"app_type"`
+	ProductType       string `json:"product_type"`
+	TenantID          string `json:"tenantID"`
+	AppID             string `json:"appID"`
+	AppName           string `json:"appName"`
+	RdpSessionId      string `json:"rdpSessionId"`
+	Recording         bool   `json:"recording"`
+	MonitorPolicyId   string `json:"monitorpolicyid"`
+	MonitorPolicyName string `json:"monitorpolicyname"`
+
+	PolicyID        string   `json:"policyid"`
+	PolicyName      string   `json:"policyname"`
+	UserEmail       string   `json:"userEmail"`
+	Username        string   `json:"username"`
+	RemotePath      string   `json:"remotePath"`
+	FileCount       int      `json:"fileCount,omitempty"`
+	Files           []string `json:"files"`
+	ClientIP        string   `json:"client_ip"`
+	ClientPrivateIp string   `json:"client_private_ip"`
+	TargetIp        string   `json:"dest"`
+
+	BlockPolicyType string `json:"blockPolicyType"`
+	BlockReason     string `json:"blockReason"`
+}
+
+func (a *Action) FillAttribute() {
+	a.TenantID = a.Session.TenantID
+	a.AppID = a.Session.AppID
+	a.AppName = a.Session.AppName
+	a.RdpSessionId = a.Session.RdpSessionId
+	a.Recording = a.Session.Recording
+	a.MonitorPolicyId = a.Session.MonitorPolicyId
+	a.MonitorPolicyName = a.Session.MonitorPolicyName
 }
 
 type LoggingInfo struct {
@@ -54,6 +68,7 @@ type LoggingInfo struct {
 	Email           string    `json:"email"`
 	AppName         string    `json:"appName"`
 	ClientIp        string    `json:"clientIp"`
+	ClientPrivateIp string    `json:"clientPrivateIp"`
 	S3Key           string    `json:"s3key"`
 	EnableRecording bool      `json:"enableRecording"`
 	StartTime       time.Time `json:"startTime"`
@@ -65,12 +80,13 @@ func (l *LoggingInfo) GetRecordingFileName() string {
 	return fmt.Sprintf("%s-%s", l.Email, l.S3Key)
 }
 
-func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enableRecording bool) LoggingInfo {
+func NewLoggingInfo(tenantId, email, appName, clientIp, s3key, sku string, enableRecording bool, clientPrivateIp string) LoggingInfo {
 	return LoggingInfo{
 		TenantId:        tenantId,
 		Email:           email,
 		AppName:         appName,
 		ClientIp:        clientIp,
+		ClientPrivateIp: clientPrivateIp,
 		S3Key:           s3key,
 		EnableRecording: enableRecording,
 		StartTime:       time.Now(),
@@ -116,6 +132,7 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageTyp
 		zap.String("bucket", bucket),
 		zap.String("region", region),
 		zap.String("client_ip", loggingInfo.ClientIp),
+		zap.String("client_private_ip", loggingInfo.ClientPrivateIp),
 		zap.String("key_id", keyId),
 		zap.String("storage_type", storageType),
 		zap.String("sessionid", sessionid),
@@ -125,6 +142,7 @@ func LogRecording(loggingInfo LoggingInfo, key string, bucket, keyId, storageTyp
 func Log(action Action) {
 	action.AppType = "rdp"
 	action.ProductType = "Portal"
+	action.FillAttribute()
 	data, err := json.Marshal(action)
 	if err != nil {
 		logrus.Errorf("unmarshall failed %s", err.Error())

@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/wwt/guac/lib/logging"
+	"github.com/wwt/guac/pkg/session"
 )
 
 var (
@@ -70,10 +71,7 @@ func (c *RdpClient) SendPermission() {
 
 type RdpSessionRoom struct {
 	Creator         string
-	ClientIp        string
 	AppId           string
-	AppName         string
-	TenantId        string
 	SessionId       string
 	RdpConnectionId string
 	AllowSharing    bool
@@ -251,8 +249,6 @@ func NewRdpSessionRoom(sessionId string, user string, closer WriterCloser, conne
 		Creator:         user,
 		SessionId:       sessionId,
 		AppId:           appId,
-		AppName:         appName,
-		TenantId:        loggingInfo.TenantId,
 		loggingInfo:     &loggingInfo,
 		Users:           make(map[string]*RdpClient),
 		RdpConnectionId: connectionId,
@@ -303,18 +299,16 @@ func JoinRoom(sessionId string, user string, ws WriterCloser, permissions string
 	}
 }
 
-func LeaveRoom(sessionId, user, tenantId, appId, appName, clientIp string) error {
+func LeaveRoom(session *session.SessionCommonData, sessionId, user, clientIp, clientPrivateIp string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
 	logging.Log(logging.Action{
-		AppTag:       "rdp.leave",
-		RdpSessionId: sessionId,
-		UserEmail:    user,
-		AppID:        appId,
-		TenantID:     tenantId,
-		AppName:      appName,
-		ClientIP:     clientIp,
+		Session:         session,
+		AppTag:          "rdp.leave",
+		UserEmail:       user,
+		ClientIP:        clientIp,
+		ClientPrivateIp: clientPrivateIp,
 	})
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
@@ -354,7 +348,7 @@ func closeRoom(room *RdpSessionRoom) {
 		logrus.Infof("disconnect user %s", u.UserId)
 		u.Websocket.Close()
 	}
-	ses, _ := SessionDataStore.Get(room.SessionId).(*SessionCommonData)
+	ses, _ := SessionDataStore.Get(room.SessionId).(*session.SessionCommonData)
 
 	delete(rdpRooms, room.SessionId)
 	SessionDataStore.Delete(room.SessionId)
@@ -365,14 +359,9 @@ func closeRoom(room *RdpSessionRoom) {
 	AddEncodeRecoding(*room.loggingInfo)
 
 	go SendEvent("exit", logging.Action{
-		RdpSessionId:      room.SessionId,
-		UserEmail:         room.Creator,
-		AppID:             room.AppId,
-		AppName:           room.AppName,
-		TenantID:          room.TenantId,
-		ClientIP:          room.ClientIp,
-		Recording:         ses.Recording,
-		MonitorPolicyId:   ses.MonitorPolicyId,
-		MonitorPolicyName: ses.MonitorPolicyName,
+		Session:         ses,
+		UserEmail:       room.Creator,
+		ClientIP:        ses.ClientIP,
+		ClientPrivateIp: ses.ClientPrivateIp,
 	})
 }

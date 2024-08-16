@@ -24,6 +24,7 @@ import (
 	"github.com/wwt/guac/lib/geoip"
 	"github.com/wwt/guac/lib/logging"
 	guac "github.com/wwt/guac/pkg"
+	guacSession "github.com/wwt/guac/pkg/session"
 )
 
 var commitID string
@@ -168,7 +169,8 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	app := cli.QueryResource(appId)
 	sku := cli.GetTenantById(tenantId).TenantType
 	clientIp := strings.Split(query.Get("clientIp"), ":")[0]
-	logrus.Infof("app %s, user %s, permissions %s, ip %s, recording %v", appId, userId, permissions, clientIp, app != nil && app.EnableRecording)
+	clientPrivateIp := query.Get("clientPrivateIp")
+	logrus.Infof("app %s, user %s, permissions %s, ip %s, private ip %s, recording %v", appId, userId, permissions, clientIp, clientPrivateIp, app != nil && app.EnableRecording)
 
 	// session recording
 	sessionId := uuid.NewV4()
@@ -176,7 +178,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	enableRecording := false
 	sessionDataKey := sessionId.String()
 
-	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, enableRecording)
+	loggingInfo := logging.NewLoggingInfo(tenantId, userId, appName, clientIp, s3key, sku, enableRecording, clientPrivateIp)
 	if app != nil && app.EnableRecording {
 		loggingInfo.EnableRecording = true
 		config.Parameters["recording-path"] = "/efs/rdp"
@@ -187,10 +189,10 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 
 	shareSessionID := query.Get("shareSessionId")
 	if room, ok := guac.GetRoomByAppIdAndCreator(appId, userId); ok {
-		logrus.Infof("host user %s join to existing session %s, app %s", userId, room.SessionId, room.AppName)
+		logrus.Infof("host user %s join to existing session %s, app %s", userId, room.SessionId, room.AppId)
 		shareSessionID = room.SessionId
 	}
-	session := &guac.SessionCommonData{}
+	session := &guacSession.SessionCommonData{}
 	if shareSessionID == "" { // launch a new rdp session
 		logrus.Infof("sessionId %s", sessionDataKey)
 		session.TenantID = tenantId
@@ -200,6 +202,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.IDToken = idtoken
 		session.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
 		session.ClientIP = clientIp
+		session.ClientPrivateIp = clientPrivateIp
 		session.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
 		session.AppName = appName
 		session.RdpSessionId = sessionDataKey
@@ -223,7 +226,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 			return nil, fmt.Errorf("session not found by session id %s", shareSessionID)
 		}
 		config.ConnectionID = room.RdpConnectionId
-		session = sessionData.(*guac.SessionCommonData)
+		session = sessionData.(*guacSession.SessionCommonData)
 		loggingInfo.AppName = session.AppName
 	}
 
