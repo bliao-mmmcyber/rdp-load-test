@@ -1,6 +1,8 @@
 package session
 
 import (
+	"time"
+
 	"github.com/appaegis/golang-common/pkg/db_data/schema"
 	"github.com/gorilla/websocket"
 )
@@ -15,7 +17,7 @@ type SessionCommonData struct {
 	ClientPrivateIp  string
 	AppName          string
 	RoleIDs          []string
-	SessionStartTime int64
+	SessionStartTime time.Time
 
 	Recording         bool
 	MonitorPolicyId   string

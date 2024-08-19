@@ -203,7 +203,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))
 		session.ClientIP = clientIp
 		session.ClientPrivateIp = clientPrivateIp
-		session.SessionStartTime = time.Now().Truncate(time.Minute).Unix() * 1000
+		session.SessionStartTime = time.Now()
 		session.AppName = appName
 		session.RdpSessionId = sessionDataKey
 
@@ -278,6 +278,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	// logrus.Debugf("Starting handshake with %#v", config)
 	err = stream.Handshake(config)
 	if err != nil {
+		logrus.Infof("handshake failed: %v %T", err, err)
 		return nil, err
 	}
 	return guac.NewSimpleTunnel(stream, sessionId, loggingInfo), nil

@@ -58,7 +58,9 @@ func (a *Action) FillAttribute() {
 	a.AppID = a.Session.AppID
 	a.AppName = a.Session.AppName
 	a.RdpSessionId = a.Session.RdpSessionId
-	a.Recording = a.Session.Recording
+	if time.Since(a.Session.SessionStartTime) > 3*time.Second { // ignore auth failed recording
+		a.Recording = a.Session.Recording
+	}
 	a.MonitorPolicyId = a.Session.MonitorPolicyId
 	a.MonitorPolicyName = a.Session.MonitorPolicyName
 }
