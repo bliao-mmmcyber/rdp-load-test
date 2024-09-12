@@ -58,7 +58,8 @@ func (a *Action) FillAttribute() {
 	a.AppID = a.Session.AppID
 	a.AppName = a.Session.AppName
 	a.RdpSessionId = a.Session.RdpSessionId
-	if time.Since(a.Session.SessionStartTime) > 3*time.Second { // ignore auth failed recording
+	logrus.Infof("%s, time since start %v", a.AppTag, time.Since(a.Session.SessionStartTime))
+	if time.Since(a.Session.SessionStartTime) > 6*time.Second { // ignore auth failed recording
 		a.Recording = a.Session.Recording
 	}
 	a.MonitorPolicyId = a.Session.MonitorPolicyId
