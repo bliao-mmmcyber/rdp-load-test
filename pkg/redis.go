@@ -41,7 +41,7 @@ func PushToQueue(recording logging.LoggingInfo) {
 
 	count++
 	index := count % theNumberOfQueues
-	logrus.Infof("push %s to queue %d", recording.S3Key, index)
+	logrus.Infof("push %s to queue %d, queue name %s", recording.S3Key, index, GetQueueName(index))
 
 	data, _ := json.Marshal(recording)
 	err := q.PushToQueue(GetQueueName(index), string(data))
