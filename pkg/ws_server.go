@@ -188,14 +188,14 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ClientPrivateIp: tunnel.GetLoggingInfo().ClientPrivateIp,
 			TargetIp:        host,
 		})
-
+		now := time.Now()
 		e := dbAccess.SaveActiveRdpSession(&schema.ActiveRdpSession{
 			Id:        sessionId,
 			Owner:     userId,
 			TenantId:  tunnel.GetLoggingInfo().TenantId,
 			Region:    config.GetRegion(),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			CreatedAt: &now,
+			UpdatedAt: &now,
 		})
 		if e != nil {
 			logrus.Errorf("save active rdp session failed")
