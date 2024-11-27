@@ -207,7 +207,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		client = NewRdpSessionRoom(sessionId, userId, ws, tunnel.ConnectionID(), sharing, appId, tunnel.GetLoggingInfo().AppName, tunnel.GetLoggingInfo())
 	} else {
 		sessionId = shareSessionId
-		ses, _ := SessionDataStore.Get(sessionId).(*session.SessionCommonData)
+		ses, _ = SessionDataStore.Get(sessionId).(*session.SessionCommonData)
 		client, e = JoinRoom(sessionId, userId, ws, sharePermissions)
 		if e != nil {
 			logrus.Errorf("join to room failed %s", sessionId)
