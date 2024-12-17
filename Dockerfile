@@ -4,11 +4,11 @@ FROM golang:1.21 as build-env
 COPY . /go/src/app
 WORKDIR /go/src/app
 
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+ENV CGO_ENABLED=0 GOOS=linux
 RUN make go.build
 
 #---------
-FROM 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/golang-common/alpine
+FROM 980993447824.dkr.ecr.us-east-1.amazonaws.com/appaegis/golang-common/alpine:rel-4.6.0
 
 ARG GIT_COMMIT
 ENV GIT_COMMIT=${GIT_COMMIT}

@@ -1,4 +1,4 @@
 @Library('Utilities')_
 
 
-dockerTemplatesV3("jenkins-slave", "guac")
+dockerTemplatesV4("guac")
