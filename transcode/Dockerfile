@@ -6,16 +6,13 @@ FROM golang:1.21 as build-env
 ADD . /go/src/app
 WORKDIR /go/src/app
 
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+ENV CGO_ENABLED=0 GOOS=linux
 RUN  make go.build
 
 #---------
 FROM $guacd
 
 USER root
-
-ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-muslc-amd64 /bin/tini
-RUN chmod +x /bin/tini
 
 RUN apt update
 RUN apt install -y ffmpeg
@@ -30,5 +27,4 @@ LABEL name="guac" \
         version="1.0"   \
         description="transcoding"
 
-ENTRYPOINT ["/bin/tini", "--"]
-CMD ["/home/appaegis/bin/transcoding"]
+ENTRYPOINT ["/home/appaegis/bin/transcoding"]
