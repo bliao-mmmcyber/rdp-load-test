@@ -1,0 +1,65 @@
+name: Branches/Tags Cleanup
+
+on:
+  push:
+    branches:
+      - "ACDO-507*"
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        type: boolean
+        required: true
+        default: true
+      daysBeforeBranchStale:
+        type: string
+        required: true
+        default: '365'
+  schedule:
+    - cron: "0 0 1 * *" # Everyday 1st day of month
+
+jobs:
+  remove-stale-branches:
+    name: Remove Stale Branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cron Job
+        if: ${{ github.event_name == 'schedule' }}
+        uses: fpicalausa/remove-stale-branches@v1.6.0
+        with:
+          dry-run: false # Check out the console output before setting this to false
+          github-token: ${{ secrets.ORG_TOKEN_2 }}
+          exempt-branches-regex: ^(main|dev|rel-(?!v).*)$
+          exempt-protected-branches: true
+          days-before-branch-stale: '365'
+          days-before-branch-delete: 0 # Set to 0 to remove immediately.
+          ignore-unknown-authors: true
+          default-recipient: "mammothcyber-TC"
+          operations-per-run: 1000
+
+      - name: Push Event Job
+        if: ${{ github.event_name == 'push' }}
+        uses: fpicalausa/remove-stale-branches@v1.6.0
+        with:
+          dry-run: true # Check out the console output before setting this to false
+          github-token: ${{ secrets.ORG_TOKEN_2 }}
+          exempt-branches-regex: ^(main|dev|rel-(?!v).*)$
+          exempt-protected-branches: true
+          days-before-branch-stale: '365'
+          days-before-branch-delete: 0 # Set to 0 to remove immediately.
+          ignore-unknown-authors: true
+          default-recipient: "mammothcyber-TC"
+          operations-per-run: 1000
+
+      - name: Manual Job
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: fpicalausa/remove-stale-branches@v1.6.0
+        with:
+          dry-run: ${{ inputs.dryRun }} # Check out the console output before setting this to false
+          github-token: ${{ secrets.ORG_TOKEN_2 }}
+          exempt-branches-regex: ^(main|dev|rel-(?!v).*)$
+          exempt-protected-branches: true
+          days-before-branch-stale: ${{ inputs.daysBeforeBranchStale }}
+          days-before-branch-delete: 0 # Set to 0 to remove immediately.
+          ignore-unknown-authors: true
+          default-recipient: "mammothcyber-TC"
+          operations-per-run: 1000
