@@ -11,7 +11,5 @@ jobs:
   auto-create-pr:
     uses: appaegis/gitaction-lib/.github/workflows/auto_pr.yaml@main
     secrets:
-      token: ${{ secrets.ORG_TOKEN }}
+      token: ${{ secrets.ORG_TOKEN_2 }}
       webhook_url: ${{ secrets.DEVOPS_CHANNEL_WEBHOOK }}
-
-      
