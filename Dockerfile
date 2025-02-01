@@ -1,5 +1,5 @@
 ARG golang_ver GIT_COMMIT
-FROM golang:1.21 as build-env
+FROM golang:1.23 as build-env
 
 COPY . /go/src/app
 WORKDIR /go/src/app
