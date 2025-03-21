@@ -6,11 +6,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Message struct {
-	counter     int
-	messageType int
-	data        []byte
-}
 type WrappedWebSocket struct {
 	*websocket.Conn
 	mux sync.Mutex
