@@ -45,9 +45,6 @@ type RdpClient struct {
 }
 
 func (c *RdpClient) WriteMessage(ins *Instruction) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	logrus.Debug("appaegis cmd send: ", ins.String())
 	e := c.Websocket.WriteMessage(websocket.TextMessage, ins.Byte())
 	if e != nil {
