@@ -78,7 +78,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	protocol := r.Header.Get("Sec-Websocket-Protocol")
-	ws, err := upgrader.Upgrade(w, r, http.Header{
+	conn, err := upgrader.Upgrade(w, r, http.Header{
 		"Sec-Websocket-Protocol": {protocol},
 	})
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		if err = ws.Close(); err != nil {
+		if err = conn.Close(); err != nil {
 			logrus.Traceln("Error closing websocket", err)
 		}
 	}()
@@ -121,7 +121,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.connect != nil {
 		tunnel, e = s.connect(r)
 	} else {
-		tunnel, e = s.connectWs(ws, r)
+		tunnel, e = s.connectWs(conn, r)
 	}
 	if e != nil {
 		logrus.Errorf("connect to rdp failed %v", e)
@@ -141,7 +141,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.OnConnect(id, r)
 	}
 	if s.OnConnectWs != nil {
-		s.OnConnectWs(id, ws, r)
+		s.OnConnectWs(id, conn, r)
 	}
 
 	writer := tunnel.AcquireWriter()
@@ -151,26 +151,25 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer s.OnDisconnect(id, r, tunnel)
 	}
 	if s.OnDisconnectWs != nil {
-		defer s.OnDisconnectWs(id, ws, r, tunnel)
+		defer s.OnDisconnectWs(id, conn, r, tunnel)
 	}
 
 	defer tunnel.ReleaseWriter()
 	defer tunnel.ReleaseReader()
 
+	ws := NewWrappedWebSocket(conn)
 	sharing := false
+	if appId != "" {
+		app := adaptor.GetDefaultDaoClient().QueryResource(appId)
+		sharing = app.AllowSharing
+	}
 	if s.channelManagement != nil {
 		if userId != "" && appId != "" {
 			ch := make(chan int, 1)
 			channelID := uuid.NewV4()
 			defer func() { _ = s.channelManagement.Remove(appId, userId, channelID.String()) }()
-			if userId != "" {
-				_ = s.channelManagement.Add(userId, channelID.String(), ch)
-			}
-			if appId != "" {
-				_ = s.channelManagement.Add(appId, channelID.String(), ch)
-				app := adaptor.GetDefaultDaoClient().QueryResource(appId)
-				sharing = app.AllowSharing
-			}
+			_ = s.channelManagement.Add(userId, channelID.String(), ch)
+			_ = s.channelManagement.Add(appId, channelID.String(), ch)
 			go BroadCastToWs(ws, ch, sharing, appId, userId)
 		}
 	}
@@ -245,11 +244,11 @@ type MessageReader interface {
 	ReadMessage() (int, []byte, error)
 }
 
-func wsToGuacd(ws *websocket.Conn, guacd io.Writer, sessionDataKey string, client *RdpClient) {
+func wsToGuacd(ws *WrappedWebSocket, guacd io.Writer, sessionDataKey string, client *RdpClient) {
 	for {
 		_, data, err := ws.ReadMessage()
 		if err != nil {
-			logrus.Traceln("Error reading message from ws", err)
+			logrus.Errorf("Error reading message from ws %v", err)
 			return
 		}
 
