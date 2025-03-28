@@ -25,9 +25,9 @@ var (
 
 // Action is user action, the log object
 type Action struct {
-	Session *session.SessionCommonData
-	AppTag  string `json:"app_tag"`
+	Session *session.SessionCommonData `json:"-"`
 
+	AppTag            string `json:"app_tag"`
 	AppType           string `json:"app_type"`
 	ProductType       string `json:"product_type"`
 	TenantID          string `json:"tenantID"`
@@ -47,7 +47,7 @@ type Action struct {
 	Files           []string `json:"files"`
 	ClientIP        string   `json:"client_ip"`
 	ClientPrivateIp string   `json:"client_private_ip"`
-	TargetIp        string   `json:"dest"`
+	Destination     string   `json:"dest"`
 
 	BlockPolicyType string `json:"blockPolicyType"`
 	BlockReason     string `json:"blockReason"`
@@ -58,10 +58,6 @@ func (a *Action) FillAttribute() {
 	a.AppID = a.Session.AppID
 	a.AppName = a.Session.AppName
 	a.RdpSessionId = a.Session.RdpSessionId
-	logrus.Infof("%s, time since start %v", a.AppTag, time.Since(a.Session.SessionStartTime))
-	if time.Since(a.Session.SessionStartTime) > 6*time.Second { // ignore auth failed recording
-		a.Recording = a.Session.Recording
-	}
 	a.MonitorPolicyId = a.Session.MonitorPolicyId
 	a.MonitorPolicyName = a.Session.MonitorPolicyName
 }

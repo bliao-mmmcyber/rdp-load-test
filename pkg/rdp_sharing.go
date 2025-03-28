@@ -45,7 +45,7 @@ type RdpClient struct {
 }
 
 func (c *RdpClient) WriteMessage(ins *Instruction) {
-	logrus.Debug("appaegis cmd send: ", ins.String())
+	// logrus.Debug("appaegis cmd send: ", ins.String())
 	e := c.Websocket.WriteMessage(websocket.TextMessage, ins.Byte())
 	if e != nil {
 		logrus.Errorf("write message to %s failed %v", c.UserId, e)
@@ -300,13 +300,16 @@ func LeaveRoom(session *session.SessionCommonData, sessionId, user, clientIp, cl
 	lock.Lock()
 	defer lock.Unlock()
 
-	logging.Log(logging.Action{
-		Session:         session,
-		AppTag:          "rdp.leave",
-		UserEmail:       user,
-		ClientIP:        clientIp,
-		ClientPrivateIp: clientPrivateIp,
-	})
+	if user != session.Email { // only log leave event for joined session user
+		logging.Log(logging.Action{
+			Session:         session,
+			AppTag:          "rdp.leave",
+			UserEmail:       user,
+			ClientIP:        clientIp,
+			ClientPrivateIp: clientPrivateIp,
+			Destination:     session.ServerName,
+		})
+	}
 
 	if room, ok := GetRdpSessionRoom(sessionId); ok {
 		room.leave(user)
@@ -355,10 +358,13 @@ func closeRoom(room *RdpSessionRoom) {
 	room.loggingInfo.SessionId = ses.RdpSessionId
 	AddEncodeRecoding(*room.loggingInfo)
 
-	go SendEvent("exit", logging.Action{
-		Session:         ses,
-		UserEmail:       room.Creator,
-		ClientIP:        ses.ClientIP,
-		ClientPrivateIp: ses.ClientPrivateIp,
-	})
+	if ses.Auth {
+		go SendEvent("exit", logging.Action{
+			Session:         ses,
+			UserEmail:       room.Creator,
+			ClientIP:        ses.ClientIP,
+			ClientPrivateIp: ses.ClientPrivateIp,
+			Destination:     ses.ServerName,
+		})
+	}
 }
