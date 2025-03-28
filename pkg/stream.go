@@ -21,9 +21,8 @@ type Stream struct {
 	conn net.Conn
 
 	// ConnectionID is the ID Guacamole gives and can be used to reconnect or share sessions
-	ConnectionID     string
-	ServerCommonName string
-	timeout          time.Duration
+	ConnectionID string
+	timeout      time.Duration
 
 	// if more than a single instruction is read, the rest are buffered here
 	parseStart int
@@ -256,10 +255,6 @@ func (s *Stream) Handshake(config *Config) error {
 
 	s.Flush()
 	s.ConnectionID = readyArgs[0]
-	if len(readyArgs) > 1 {
-		s.ServerCommonName = readyArgs[1]
-	}
-	logrus.Infof("connection %s, server common name %s", s.ConnectionID, s.ServerCommonName)
 
 	return nil
 }
