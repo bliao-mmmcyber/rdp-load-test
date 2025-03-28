@@ -154,6 +154,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 	roleIds := query.Get("roleIds")
 	appId := query.Get("appId")
 	userId := query.Get("userId")
+	userName := query.Get("username")
 	appName := query.Get("appName")
 	var permissions string
 	cli := adaptor.GetDefaultDaoClient()
@@ -198,6 +199,7 @@ func DemoDoConnect(request *http.Request) (guac.Tunnel, error) {
 		session.TenantID = tenantId
 		session.AppID = appId
 		session.Email = userId
+		session.UserName = userName
 		session.RoleIDs = strings.Split(roleIds, ",")
 		session.IDToken = idtoken
 		session.ClientIsoCountry = geoip.GetIpIsoCode(query.Get("clientIp"))

@@ -94,7 +94,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	shareSessionId := query.Get("shareSessionId")
 	userId := query.Get("userId")
 	appId := query.Get("appId")
-	userName := query.Get("username")
 	host := query.Get("hostname")
 	if strings.HasSuffix(host, "appaegis.tunnel") {
 		host = strings.SplitN(host, "-", 2)[0]
@@ -177,16 +176,6 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var client *RdpClient
 	ses, _ := SessionDataStore.Get(sessionId).(*session.SessionCommonData)
 	if shareSessionId == "" { // rdp session owner connected
-		clientIp := strings.Split(query.Get("clientIp"), ":")[0]
-
-		go SendEvent("open", logging.Action{
-			Session:         ses,
-			UserEmail:       userId,
-			Username:        userName,
-			ClientIP:        clientIp,
-			ClientPrivateIp: tunnel.GetLoggingInfo().ClientPrivateIp,
-			TargetIp:        host,
-		})
 		now := time.Now()
 		e := dbAccess.SaveActiveRdpSession(&schema.ActiveRdpSession{
 			Id:        sessionId,
@@ -214,9 +203,10 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, ok := GetRdpSessionRoom(sessionId); ok {
 			go SendEvent("join", logging.Action{
-				Session:   ses,
-				UserEmail: userId,
-				ClientIP:  strings.Split(query.Get("clientIp"), ":")[0],
+				Session:     ses,
+				UserEmail:   userId,
+				ClientIP:    strings.Split(query.Get("clientIp"), ":")[0],
+				Destination: ses.ServerName,
 			})
 		}
 	}
@@ -227,7 +217,7 @@ func (s *WebsocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	client.SendPermission()
 
 	go wsToGuacd(ws, writer, sessionId, client)
-	guacdToWs(ws, reader)
+	guacdToWs(ws, reader, ses)
 
 	logrus.Infof("%s leave %s, connection id %s", userId, sessionId, tunnel.ConnectionID())
 	e = LeaveRoom(ses, sessionId, userId, tunnel.GetLoggingInfo().ClientIp, tunnel.GetLoggingInfo().ClientPrivateIp)
@@ -270,7 +260,6 @@ func wsToGuacd(ws *WrappedWebSocket, guacd io.Writer, sessionDataKey string, cli
 		if !client.Keyboard && bytes.HasPrefix(data, keyCmdOpcodeIns) {
 			continue
 		}
-
 		if _, err = guacd.Write(data); err != nil {
 			logrus.Traceln("Failed writing to guacd", err)
 			return
@@ -284,7 +273,7 @@ type MessageWriter interface {
 	WriteMessage(int, []byte) error
 }
 
-func guacdToWs(ws MessageWriter, guacd InstructionReader) {
+func guacdToWs(ws MessageWriter, guacd InstructionReader, ses *session.SessionCommonData) {
 	buf := bytes.NewBuffer(make([]byte, 0, MaxGuacMessage*2))
 
 	for {
@@ -296,6 +285,28 @@ func guacdToWs(ws MessageWriter, guacd InstructionReader) {
 
 		if bytes.HasPrefix(ins, internalOpcodeIns) {
 			// messages starting with the InternalDataOpcode are never sent to the websocket
+			continue
+		}
+		if bytes.HasPrefix(ins, []byte("11.server_info")) {
+			ses.Auth = true
+			i := bytes.IndexByte(ins, ',')
+			serverName := ""
+			if i > 0 {
+				serverInfo := ins[i+1 : len(ins)-1]
+				i = bytes.IndexByte(serverInfo, '.')
+				serverName = string(serverInfo[i+1:])
+				logrus.Infof("received server_name %s", serverName)
+			}
+			ses.ServerName = serverName
+
+			go SendEvent("open", logging.Action{
+				Session:         ses,
+				UserEmail:       ses.Email,
+				Username:        ses.UserName,
+				ClientIP:        ses.ClientIP,
+				ClientPrivateIp: ses.ClientPrivateIp,
+				Destination:     serverName,
+			})
 			continue
 		}
 
@@ -343,7 +354,7 @@ func BroadCastPolicy(ws MessageWriter, sharing bool, appId string, userId string
 	}
 	ins := NewInstruction("sync", instruction...)
 	insValue := ins.String()
-	logrus.Debug("send:", insValue)
+	logrus.Debug("send policy:", insValue)
 	if err := ws.WriteMessage(1, []byte(insValue)); err != nil {
 		logrus.Error("Failed sending policy message to ws", err)
 		if err == websocket.ErrCloseSent {
@@ -361,7 +372,7 @@ func GetDrivePathInEFS(tenantID, appID, userID string) string {
 type J map[string]interface{}
 
 func handleAppaegisCommand(client *RdpClient, cmd []byte, sessionDataKey string) {
-	logrus.Printf("receive: %s", cmd)
+	logrus.Printf("receive appaegis cmd: %s", cmd)
 	instruction, err := Parse(cmd)
 	if err != nil {
 		logrus.Println("Instruction parse error: ", err)

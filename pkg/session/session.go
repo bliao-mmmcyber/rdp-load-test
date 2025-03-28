@@ -8,9 +8,12 @@ import (
 )
 
 type SessionCommonData struct {
+	Auth             bool
+	ServerName       string
 	TenantID         string
 	AppID            string
 	Email            string
+	UserName         string
 	IDToken          string
 	ClientIsoCountry string
 	ClientIP         string
