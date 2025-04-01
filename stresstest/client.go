@@ -1,6 +1,7 @@
 package stresstest
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -53,6 +54,11 @@ type Client struct {
 	Jwt      string
 }
 
+type Message struct {
+	Op   string
+	Args []string
+}
+
 func (c *Client) Connect(wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -88,15 +94,17 @@ func (c *Client) Connect(wg *sync.WaitGroup) {
 		logrus.Errorf("dial websocket failed %v", err)
 		return
 	}
-
 	defer conn.Close()
 
 	go func() {
 		for {
-			_, _, e := conn.ReadMessage()
+			_, data, e := conn.ReadMessage()
 			if e == nil {
-				logrus.Infof("client received data")
-				// logrus.Infof("receive %s", msg)
+				if m, e := parseMessage(data); e == nil {
+					logrus.Infof("receive command op %s, args %v", m.Op, m.Args)
+				} else {
+					logrus.Errorf("parse message failed %#v, data %s", e, string(data))
+				}
 			} else {
 				logrus.Errorf("ws failed %v", e)
 				return
@@ -132,4 +140,18 @@ func (c *Client) Connect(wg *sync.WaitGroup) {
 			break
 		}
 	}
+}
+
+func parseMessage(data []byte) (*Message, error) {
+	ins := bytes.Split(data, []byte{','})
+	if len(ins) < 1 {
+		return nil, fmt.Errorf("instruction not found")
+	}
+	opPart := ins[0]
+	i := bytes.IndexByte(opPart, '.')
+	op := opPart[i+1:]
+	var r Message
+	r.Op = string(op)
+	logrus.Infof("op %s", r.Op)
+	return &r, nil
 }
