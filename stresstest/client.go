@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	APP_ID     = "0caed39b-e7d7-49c5-a463-951c536cee1b"
-	NETWORK_ID = "3eb42b35-e4a0-493a-8e66-9485883610bb"
-	SEM        = "10.0.1.12"
-	TENANT_ID  = "934eb2c0-873f-4204-aba7-0f63c3f5f372"
-	CE         = "dev.ce.appaegistest.com"
+	APP_ID     = "fad4d85e-7c1c-4144-bc7a-7b1f0b46c27e"
+	NETWORK_ID = "bd5538b3-84d0-4ec0-87c6-ed28058efb26"
+	SEM        = "qa.sem.mammothcyber.io"
+	TENANT_ID  = "8c197ec8-77db-4558-a57b-a708040c2566"
+	CE         = "qa.ce.mammothcyber.io"
 )
 
 func init() {
@@ -74,13 +74,13 @@ func (c *Client) Connect(wg *sync.WaitGroup) {
 	vals.Set("scheme", "rdp")
 	vals.Set("ignore-cert", "true")
 	vals.Set("username", fmt.Sprintf("user%d", c.Index))
-	vals.Set("password", "Aa123456")
+	vals.Set("password", "SF1455clay")
 	vals.Set("width", "700")
 	vals.Set("height", "577")
 	vals.Set("color-depth", "24")
 	vals.Set("enable-wallpaper", "true")
 	vals.Set("enable-drive", "true")
-	vals.Set("userId", "kchung@appaegis.com")
+	vals.Set("userId", "heybruce@gmail.com")
 	vals.Set("appId", APP_ID)
 	vals.Set("tenantId", TENANT_ID)
 	vals.Set("gateway-hostname", SEM)
