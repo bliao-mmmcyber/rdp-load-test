@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Cron Job
         if: ${{ github.event_name == 'schedule' }}
-        uses: fpicalausa/remove-stale-branches@v1.6.0
+        uses: fpicalausa/remove-stale-branches@v2.3.0
         with:
           dry-run: false # Check out the console output before setting this to false
           github-token: ${{ secrets.ORG_TOKEN_2 }}
@@ -38,7 +38,7 @@ jobs:
 
       - name: Push Event Job
         if: ${{ github.event_name == 'push' }}
-        uses: fpicalausa/remove-stale-branches@v1.6.0
+        uses: fpicalausa/remove-stale-branches@v2.3.0
         with:
           dry-run: true # Check out the console output before setting this to false
           github-token: ${{ secrets.ORG_TOKEN_2 }}
@@ -52,7 +52,7 @@ jobs:
 
       - name: Manual Job
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: fpicalausa/remove-stale-branches@v1.6.0
+        uses: fpicalausa/remove-stale-branches@v2.3.0
         with:
           dry-run: ${{ inputs.dryRun }} # Check out the console output before setting this to false
           github-token: ${{ secrets.ORG_TOKEN_2 }}
