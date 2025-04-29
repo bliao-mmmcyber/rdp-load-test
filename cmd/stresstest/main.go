@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -12,12 +13,12 @@ import (
 )
 
 var (
-	userCount    = 30
+	userCount    = 1
 	launchPeriod = 5 * time.Second
 	SERVERS      = []string{"192.168.50.21"}
 	index        = 0
 	runFor       = 3 * time.Minute
-	jwt          = "eyJraWQiOiJDSEhQc1g2NUF6VGYyVTZGTm03UGF5ejVKQnh0aG5tWHk2SzRZTzdrRVhJPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJjM2ZkN2U4My1lZjQwLTRmNGEtYjhmYy1jZWIzOGNlM2QwZjUiLCJjb2duaXRvOmdyb3VwcyI6WyJzdXBlcnVzZXIiXSwiZW1haWxfdmVyaWZpZWQiOnRydWUsInN1cGVydXNlcnRlbmFudGlkIjoiOGMxOTdlYzgtNzdkYi00NTU4LWE1N2ItYTcwODA0MGMyNTY2IiwiY29nbml0b1VzZXJFbWFpbCI6ImhleWJydWNlQGdtYWlsLmNvbSIsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC51cy13ZXN0LTIuYW1hem9uYXdzLmNvbVwvdXMtd2VzdC0yX29BNU1BUkpoUCIsInBob25lX251bWJlcl92ZXJpZmllZCI6ZmFsc2UsInVzZXJyb2xlIjoic3VwZXJ1c2VyIiwiY29nbml0bzp1c2VybmFtZSI6ImMzZmQ3ZTgzLWVmNDAtNGY0YS1iOGZjLWNlYjM4Y2UzZDBmNSIsImlzc3VlZFRocm91Z2hTaWxlbnRBdXRoIjoiZmFsc2UiLCJza3VUeXBlIjoiSGlnaCIsImF1ZCI6IjZtbHByM3Zocm42NGEwbGpvMDMwZnQxaWFnIiwiZXZlbnRfaWQiOiIyYzI4ZDM0Ny0zYTZkLTQ2ZTctYThkZC1hNjYzYzgxNTQ3NjIiLCJ0b2tlbl91c2UiOiJpZCIsInBlcm1pc3Npb25zIjoiRlFPbHlBPT0iLCJhdXRoX3RpbWUiOjE3NDQwODA0ODgsImV4cCI6MTc0NDA4NDA4OCwiaWF0IjoxNzQ0MDgwNDg4LCJlbWFpbCI6ImhleWJydWNlQGdtYWlsLmNvbSJ9.AnL8O0a-AGMmpHwfNztMmXb7FBvQ2TznC_Dv-teV4AuUvI00y073uaH0tgG29VxcpSL_MiXO33jw8otbgq-56ZcHA3-UXVJMmqfYL6K7_qP-hsig3Wm7qLGOe9bc5ao-PQAY2g4KA1FjTag0K9__p0xuK3V_MHkv7ARSZ9ZaYs_6GGZ7nYtLLerlSRHdAc5IFJPe5R6Me8yvdyRIJQbh4Isrmwxri9WyU6A6vPYmFc7ZM2wJRYCoxSHm7WqCk3CoaZXwi5i4jjdjowkHRYm7xBgE3YyrcJCMtxADoDgiSGpdoaG_VPv4vGPAdn4XACVAR48277AEfml-LMXf_2phxA"
+	jwt          = "eyJraWQiOiJEaUUrbTc4XC9nRVNJb2ZhVHNxWHVFeFE4aWdQam4wdU1hdTQ1ZWlwTDlOaz0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJkNGRjMzRkYy01ZTE4LTQ5MmQtYmNiYS1lYmRjMzczMzgyNTYiLCJjb2duaXRvOmdyb3VwcyI6WyJzdXBlcnVzZXIiXSwiZW1haWxfdmVyaWZpZWQiOnRydWUsInN1cGVydXNlcnRlbmFudGlkIjoiNTgzZWQ2ODgtYWU4ZC00ZTg1LWE2ZWQtNjY5YzMyODEwOGE0IiwiY29nbml0b1VzZXJFbWFpbCI6ImhleWJydWNlK3FhdGVzdEBnbWFpbC5jb20iLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV9mcjEzYWtETTciLCJwaG9uZV9udW1iZXJfdmVyaWZpZWQiOmZhbHNlLCJ1c2Vycm9sZSI6InN1cGVydXNlciIsImNvZ25pdG86dXNlcm5hbWUiOiJkNGRjMzRkYy01ZTE4LTQ5MmQtYmNiYS1lYmRjMzczMzgyNTYiLCJpc3N1ZWRUaHJvdWdoU2lsZW50QXV0aCI6ImZhbHNlIiwic2t1VHlwZSI6IkhpZ2giLCJhdWQiOiI3aWtlYmkyaGd2Z2duazRkYmhyMjVsa3M4bCIsImV2ZW50X2lkIjoiYzY1YmQ4ODItNWNiYi00Mzk3LWE2NzEtOGYxM2Y4MzQ5NmQ5IiwidG9rZW5fdXNlIjoiaWQiLCJwZXJtaXNzaW9ucyI6IkZRT2x5QT09IiwiYXV0aF90aW1lIjoxNzQ1ODk2Mjc4LCJleHAiOjE3NDU5MDc2MTgsImlhdCI6MTc0NTkwNDAxOCwiZW1haWwiOiJoZXlicnVjZStxYXRlc3RAZ21haWwuY29tIn0.Z8IuIuvTA2-Bdp8MXK7tuvwErFvBtY9DgqtIF-s811_nGSgrjxlQzSHFXhC1AitaVsxYTsF9rNrbvtKBDy7CacN8yMOfpsBSij6UAIRSdZeRRr9EAfScY_JyDE84x1NQLuw5zdafS5bC-dfnYWP3M8JqSJhl294A_PzdIEeR6CVmWTSVOOPBC0SnXjN_Nrty8tK9BlsuSxZoYJBBjkNsJkhp6dWM49k-M5a9lJtoqCHSzqbbUz-GNtehvFUR2Zriq79xRzX07GCkRdZm8SXtIO1iBBZ_sxsHNlag_PhHK_1UsJfTjds-eGcxCm6Xo6KBgYaEOSuay1vF9Lj5JIo8Pw"
 )
 
 func init() {
@@ -46,11 +47,17 @@ func main() {
 
 	var wg sync.WaitGroup
 	for i := 0; i < userCount; i++ {
-		c := stresstest.Client{Index: i + 1, ServerIp: SERVERS[index], RunFor: runFor, Jwt: jwt}
-		time.Sleep(launchPeriod)
 		wg.Add(1)
-		logrus.Infof("connect client %d", c.Index)
-		go c.Connect(&wg)
+		c := stresstest.Client{Index: i + 1, ServerIp: SERVERS[index], RunFor: runFor, Jwt: jwt}
+
+		// time.Sleep(launchPeriod)
+		// logrus.Infof("connect client %d", c.Index)
+		// go c.Connect(&wg)
+		go func(client stresstest.Client) {
+			defer time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+			logrus.Infof("connect client %d", client.Index)
+			go client.Connect(&wg)
+		}(c)
 	}
 	wg.Wait()
 }

@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	APP_ID     = "fad4d85e-7c1c-4144-bc7a-7b1f0b46c27e"
-	NETWORK_ID = "bd5538b3-84d0-4ec0-87c6-ed28058efb26"
+	APP_ID     = "fbd380f9-2e2c-4c22-a8d3-7b9e9632727d"
+	NETWORK_ID = "ab528cb3-9b74-425f-896f-a723fffc7a2a"
 	SEM        = "qa.sem.mammothcyber.io"
-	TENANT_ID  = "8c197ec8-77db-4558-a57b-a708040c2566"
+	TENANT_ID  = "583ed688-ae8d-4e85-a6ed-669c328108a4"
 	CE         = "qa.ce.mammothcyber.io"
 )
 
@@ -74,13 +74,13 @@ func (c *Client) Connect(wg *sync.WaitGroup) {
 	vals.Set("scheme", "rdp")
 	vals.Set("ignore-cert", "true")
 	vals.Set("username", fmt.Sprintf("user%d", c.Index))
-	vals.Set("password", "SF1455clay")
+	vals.Set("password", "Aa123456")
 	vals.Set("width", "700")
 	vals.Set("height", "577")
 	vals.Set("color-depth", "24")
 	vals.Set("enable-wallpaper", "true")
 	vals.Set("enable-drive", "true")
-	vals.Set("userId", "heybruce@gmail.com")
+	vals.Set("userId", "heybruce+qatest@gmail.com")
 	vals.Set("appId", APP_ID)
 	vals.Set("tenantId", TENANT_ID)
 	vals.Set("gateway-hostname", SEM)
@@ -91,40 +91,52 @@ func (c *Client) Connect(wg *sync.WaitGroup) {
 	logrus.Infof("%s", body)
 
 	if err != nil {
-		logrus.Errorf("dial websocket failed %v", err)
+		logrus.Errorf("Dial websocket failed %v", err)
 		return
 	}
 	defer conn.Close()
 
+	start := time.Now()
+	// Launch a goroutine to read messages from the WebSocket connection and log the received messages
 	go func() {
 		for {
 			_, data, e := conn.ReadMessage()
 			if e == nil {
 				if m, e := parseMessage(data); e == nil {
-					logrus.Infof("receive command op %s, args %v", m.Op, m.Args)
+					logrus.Infof("Receive command op %s, args %v", m.Op, m.Args)
+
 				} else {
-					logrus.Errorf("parse message failed %#v, data %s", e, string(data))
+					logrus.Errorf("Parse message failed: %#v, data %s. Duration: %v ms", e, string(data), time.Since(start).Milliseconds())
 				}
 			} else {
-				logrus.Errorf("ws failed %v", e)
+				logrus.Errorf("WebSocket connection failed: %v, Duration: %v ms", e, time.Since(start).Milliseconds())
 				return
 			}
 		}
 	}()
-
-	start := time.Now()
-	x := 50
-	y := 50
+	// Simulate mouse movement
+	x := 1
+	y := 1
 	reverse := false
 	for {
-		logrus.Infof("user %d write mouse %d %d", c.Index, x, y)
+		logrus.Infof("Sending mouse movement...User %d write mouse movement %d %d", c.Index, x, y)
+
 		ins := guac.NewInstruction("mouse", []string{fmt.Sprintf("%d", x), fmt.Sprintf("%d", y)}...)
+
+		// Start timer before sending the message
+		requestStart := time.Now()
+
 		e := conn.WriteMessage(websocket.TextMessage, ins.Byte())
 		if e != nil {
-			logrus.Errorf("write message to guac failed %v", e)
+			logrus.Errorf("User %v write message to guac failed. Response: %v", c.Index, e)
 			break
+		} else {
+			// Measure the time after successfully sending the message
+			requestDuration := time.Since(requestStart).Nanoseconds()
+			logrus.Infof("User %v successfully wrote message to guac. Request Response Time: %f ms", c.Index, float64(requestDuration)/1e6)
 		}
-		time.Sleep(100 * time.Millisecond)
+
+		time.Sleep(1000 * time.Millisecond)
 		diff := 1
 		if reverse {
 			diff = -1
@@ -137,6 +149,7 @@ func (c *Client) Connect(wg *sync.WaitGroup) {
 			reverse = false
 		}
 		if time.Since(start) > c.RunFor {
+			logrus.Infof("User %d run for %v, stopped", c.Index, c.RunFor)
 			break
 		}
 	}
@@ -152,6 +165,6 @@ func parseMessage(data []byte) (*Message, error) {
 	op := opPart[i+1:]
 	var r Message
 	r.Op = string(op)
-	logrus.Infof("op %s", r.Op)
+	// logrus.Infof("op %s", r.Op)
 	return &r, nil
 }
